@@ -1,0 +1,6 @@
+install:
+  stage: prepare
+  cache:
+    policy: pull-push
+  script:
+    - yarn add uuid

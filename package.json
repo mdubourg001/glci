@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "dockerode": "^3.2.1",
+    "js-yaml": "^4.0.0"
+  },
+  "scripts": {
+    "clean": "docker stop $(docker ps -a -q) && docker rm $(docker ps -a -q)"
+  }
+}

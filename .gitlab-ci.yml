@@ -1,0 +1,23 @@
+variables:
+  NODE_VERSION: "12"
+
+image: node:lts-alpine3.13
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  untracked: true
+  policy: pull
+
+stages:
+  - prepare
+  # - test
+  # - build
+  # - deploy
+  # - schedule
+
+include:
+  - local: "/ci/prepare.yml"
+  # - local: '/ci/test.yml'
+  # - local: '/ci/schedule.yml'
+  # - local: '/ci/build.yml'
+  # - local: '/ci/deploy.yml'
