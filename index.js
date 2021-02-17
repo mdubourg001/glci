@@ -25,8 +25,8 @@ const DEFAULT = {};
 const ARGV = yargs(hideBin(process.argv)).argv;
 
 const LOCAL_CI_DIR = ARGV.dir
-  ? path.resolve(__dirname, ARGV.dir)
-  : path.resolve(__dirname, ".local-ci");
+  ? path.resolve(process.cwd(), ARGV.dir)
+  : path.resolve(process.cwd(), ".local-ci");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -90,13 +90,22 @@ async function main() {
   const repository = await git.Repository.open(".");
   const commit = (await repository.getHeadCommit()).sha().slice(0, 7);
 
+  const master = await repository.getMasterCommit();
+  const tree = await master.getTree();
+  const walker = tree.walk();
+  let project = [];
+
+  // listing .git project files
+  walker.on("entry", (entry) => project.push(entry.path()));
+  walker.start();
+
   // handling inclusion of other yaml files
   if ("include" in ci) {
     let included = "";
 
     for (const entry of ci.include) {
       if ("local" in entry) {
-        included += fs.readFileSync(__dirname + entry.local) + "\n";
+        included += fs.readFileSync(process.cwd() + entry.local) + "\n";
       } else {
         throw "Only 'local' includes are supported at the moment.";
       }
@@ -159,39 +168,50 @@ async function main() {
       const config = {
         Image: image,
         Tty: true,
-        Volumes: {
-          // add project files to container
-          [__dirname]: {},
-          ...cache.paths.reduce(
-            (curr, path) => ({
-              ...curr,
-              [`/${path}`]: {},
-            }),
-            {}
-          ),
-        },
-        HostConfig: {
-          Binds: [
-            // binding project directory volume as read-only
-            `${__dirname}:${workdir}:ro`,
-            ...cache.paths.map(
-              (p) =>
-                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
-                  cache.policy === "pull" ? ":ro" : ""
-                }`
-            ),
-          ],
-        },
-        // Mounts: cache.paths.map((path) => ({
-        //   Source: `${LOCAL_CI_DIR}/${path}`,
-        //   Target: `/${path}`,
-        //   Type: "volume",
-        //   ReadOnly: cache.policy === "pull",
-        //   VolumeOptions: { NoCopy: true },
-        // })),
+        // Volumes: {
+        //   // add project volume to container
+        //   //[process.cwd()]: {},
+        //   ...cache.paths.reduce(
+        //     (curr, path) => ({
+        //       ...curr,
+        //       [`${path}`]: {},
+        //     }),
+        //     {}
+        //   ),
+        // },
+        // HostConfig: {
+        //   Binds: [
+        //     // binding project directory files as read-only
+        //     //...project.map((p) => `${LOCAL_CI_DIR}/${p}:${workdir}/${p}:ro`),
+        //     ...cache.paths.map(
+        //       (path) =>
+        //         `${LOCAL_CI_DIR}/${path}:${workdir}/${path}${
+        //           cache.policy === "pull" ? ":ro" : ""
+        //         }`
+        //     ),
+        //   ],
+        // },
+        Mounts: [
+          ...project.map((p) => ({
+            Source: path.resolve(process.cwd(), p),
+            Target: `${workdir}/${p}`,
+            Type: "bind",
+            ReadOnly: true,
+          })),
+          ...cache.paths.map((p) => ({
+            Source: path.resolve(LOCAL_CI_DIR, p),
+            Target: `${workdir}/${p}`,
+            Type: "volume",
+            ReadOnly: cache.policy === "pull",
+          })),
+        ],
       };
 
-      // console.log(config);
+      for (const mount of config.Mounts) {
+        if (!fs.existsSync(mount.Source)) {
+          fs.mkdirSync(mount.Source, { recursive: true });
+        }
+      }
 
       const container = await docker.createContainer(config).catch(onerror);
       await container.start().catch(onerror);
