@@ -8,6 +8,7 @@ const Docker = require("dockerode");
 const chalk = require("chalk");
 
 const fs = require("fs");
+const { exit } = require("process");
 
 // ----- globals -----
 
@@ -36,6 +37,27 @@ const GLOBAL_DEFAULT_KEY = ["image", "before_script", "after_script"];
 
 // ----- main -----
 
+async function execCommands(container, commands, onerror) {
+  for (const command of commands) {
+    const parsed = command
+      .match(/"[^"]*"|\S+/g)
+      .map((m) => (m.slice(0, 1) === '"' ? m.slice(1, -1) : m));
+
+    const exec = await container
+      .exec({
+        Cmd: parsed,
+        AttachStdout: true,
+        AttachStderr: true,
+      })
+      .catch(onerror);
+
+    const stream = await exec.start().catch(onerror);
+
+    container.modem.demuxStream(stream, process.stdout, process.stderr);
+    await new Promise((resolve) => stream.on("end", resolve));
+  }
+}
+
 async function main() {
   const gitlabci = fs.readFileSync("./.gitlab-ci.yml", "utf8");
   let ci = yaml.load(gitlabci);
@@ -48,6 +70,8 @@ async function main() {
   if (!("stages" in ci)) {
     throw "No 'stages' keyword found in your .gitlab-ci.yml.";
   }
+
+  const docker = new Docker();
 
   // handling inclusion of other yaml files
   if ("include" in ci) {
@@ -85,46 +109,49 @@ async function main() {
     // see https://docs.gitlab.com/ee/ci/yaml/README.html#stages
     for (const name of jobs) {
       const job = ci[name];
-      const docker = new Docker();
+      const image = job.image ?? DEFAULT.image;
 
-      const onerror = (err) => {
+      const onerror = async (err) => {
         console.error(chalk.red("✘"), ` - ${name}`);
         console.error(err);
+
+        //await docker.pruneContainers();
+        exit(1);
       };
 
-      // TODO: use config defined in job
+      await new Promise((resolve, reject) =>
+        docker.pull(image, {}, (err, stream) => {
+          if (err) reject(err);
+          docker.modem.followProgress(stream, resolve);
+        })
+      ).catch(onerror);
+
       const container = await docker
         .createContainer({
-          Image: "alpine:edge",
-          Cmd: ["/bin/ash"],
+          Image: image,
+          //Cmd: ["/bin/ash"],
           Tty: true,
         })
         .catch(onerror);
 
       await container.start().catch(onerror);
 
-      const attach = await container
-        .attach({
-          stream: true,
-          stdout: true,
-          stderr: true,
-        })
-        .catch(onerror);
+      // running before_script
+      if (job.before_script || DEFAULT.before_script) {
+        const commands = job.before_script ?? DEFAULT.before_script;
 
-      // TODO: handle writing to log files
-      attach.pipe(process.stdout);
+        await execCommands(container, commands, onerror);
+      }
 
-      const exec = await container
-        .exec({
-          Cmd: ["echo", "Hello from Dockerode !"],
-          AttachStdout: true,
-          AttachStderr: true,
-        })
-        .catch(onerror);
-      const stream = await exec.start().catch(onerror);
+      // running script
+      await execCommands(container, job.script, onerror);
 
-      // TODO: handle writing to log files
-      container.modem.demuxStream(stream, process.stdout, process.stderr);
+      // running after_script
+      if (job.after_script || DEFAULT.after_script) {
+        const commands = job.after_script ?? DEFAULT.after_script;
+
+        await execCommands(container, commands, onerror);
+      }
 
       await container.stop().catch(onerror);
       await container.remove().catch(onerror);
@@ -132,6 +159,9 @@ async function main() {
       console.log(chalk.green("✓"), ` - ${name}`);
     }
   }
+
+  // TODO: prune only containers created during the process
+  //await docker.pruneContainers();
 }
 
 main();

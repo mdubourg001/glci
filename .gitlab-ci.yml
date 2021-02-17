@@ -1,7 +1,7 @@
 variables:
   NODE_VERSION: "12"
 
-image: node:lts-alpine3.13
+image: node:lts-alpine3.12
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}

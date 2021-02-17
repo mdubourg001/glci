@@ -3,4 +3,6 @@ install:
   cache:
     policy: pull-push
   script:
+    - echo "Running install job..."
     - yarn add uuid
+    - echo "All done !"

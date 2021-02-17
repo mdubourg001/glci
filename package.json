@@ -5,6 +5,6 @@
     "js-yaml": "^4.0.0"
   },
   "scripts": {
-    "clean": "docker stop $(docker ps -a -q) && docker rm $(docker ps -a -q)"
+    "clean": "docker container prune"
   }
 }
