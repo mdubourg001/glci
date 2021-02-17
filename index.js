@@ -5,8 +5,12 @@
 
 const yaml = require("js-yaml");
 const Docker = require("dockerode");
+const git = require("nodegit");
 const chalk = require("chalk");
+const yargs = require("yargs/yargs");
+const { hideBin } = require("yargs/helpers");
 
+const path = require("path");
 const fs = require("fs");
 const { exit } = require("process");
 
@@ -17,6 +21,12 @@ const JOBS_NAMES = [];
 const DEFAULT = {};
 
 // ----- constants -----
+
+const ARGV = yargs(hideBin(process.argv)).argv;
+
+const LOCAL_CI_DIR = ARGV.dir
+  ? path.resolve(__dirname, ARGV.dir)
+  : path.resolve(__dirname, ".local-ci");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -33,11 +43,11 @@ const RESERVED_JOB_NAMES = [
 
 // keys that can appear in "default" key
 // https://docs.gitlab.com/ee/ci/yaml/README.html#global-defaults
-const GLOBAL_DEFAULT_KEY = ["image", "before_script", "after_script"];
+const GLOBAL_DEFAULT_KEY = ["image", "before_script", "after_script", "cache"];
 
 // ----- main -----
 
-async function execCommands(container, commands, onerror) {
+async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
     const parsed = command
       .match(/"[^"]*"|\S+/g)
@@ -48,6 +58,7 @@ async function execCommands(container, commands, onerror) {
         Cmd: parsed,
         AttachStdout: true,
         AttachStderr: true,
+        WorkingDir: workdir,
       })
       .catch(onerror);
 
@@ -59,6 +70,10 @@ async function execCommands(container, commands, onerror) {
 }
 
 async function main() {
+  if (!fs.existsSync("./.gitlab-ci.yml")) {
+    throw "No .gitlab-ci.yml file found in current working directory.";
+  }
+
   const gitlabci = fs.readFileSync("./.gitlab-ci.yml", "utf8");
   let ci = yaml.load(gitlabci);
 
@@ -72,6 +87,8 @@ async function main() {
   }
 
   const docker = new Docker();
+  const repository = await git.Repository.open(".");
+  const commit = (await repository.getHeadCommit()).sha().slice(0, 7);
 
   // handling inclusion of other yaml files
   if ("include" in ci) {
@@ -86,7 +103,7 @@ async function main() {
     }
 
     ci = { ...ci, ...yaml.load(included) };
-    console.log(ci, "\n\n============\n");
+    //console.log(ci, "\n\n============\n");
   }
 
   // figuring out default values
@@ -109,7 +126,19 @@ async function main() {
     // see https://docs.gitlab.com/ee/ci/yaml/README.html#stages
     for (const name of jobs) {
       const job = ci[name];
+      const workdir = `/${commit}`;
       const image = job.image ?? DEFAULT.image;
+      const cache = {
+        policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
+        // TODO: handle "untracked"
+        // https://git-scm.com/docs/git-ls-files
+        paths:
+          job.cache?.paths ?? Array.isArray(job.cache)
+            ? job.cache
+            : Array.isArray(DEFAULT.cache)
+            ? DEFAULT.cache
+            : DEFAULT.cache?.paths ?? [],
+      };
 
       const onerror = async (err) => {
         console.error(chalk.red("✘"), ` - ${name}`);
@@ -119,6 +148,7 @@ async function main() {
         exit(1);
       };
 
+      // pulling the image to use
       await new Promise((resolve, reject) =>
         docker.pull(image, {}, (err, stream) => {
           if (err) reject(err);
@@ -126,35 +156,67 @@ async function main() {
         })
       ).catch(onerror);
 
-      const container = await docker
-        .createContainer({
-          Image: image,
-          //Cmd: ["/bin/ash"],
-          Tty: true,
-        })
-        .catch(onerror);
+      const config = {
+        Image: image,
+        Tty: true,
+        Volumes: {
+          // add project files to container
+          [__dirname]: {},
+          ...cache.paths.reduce(
+            (curr, path) => ({
+              ...curr,
+              [`/${path}`]: {},
+            }),
+            {}
+          ),
+        },
+        HostConfig: {
+          Binds: [
+            // binding project directory volume as read-only
+            `${__dirname}:${workdir}:ro`,
+            ...cache.paths.map(
+              (p) =>
+                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
+                  cache.policy === "pull" ? ":ro" : ""
+                }`
+            ),
+          ],
+        },
+        // Mounts: cache.paths.map((path) => ({
+        //   Source: `${LOCAL_CI_DIR}/${path}`,
+        //   Target: `/${path}`,
+        //   Type: "volume",
+        //   ReadOnly: cache.policy === "pull",
+        //   VolumeOptions: { NoCopy: true },
+        // })),
+      };
 
+      // console.log(config);
+
+      const container = await docker.createContainer(config).catch(onerror);
       await container.start().catch(onerror);
 
       // running before_script
       if (job.before_script || DEFAULT.before_script) {
         const commands = job.before_script ?? DEFAULT.before_script;
 
-        await execCommands(container, commands, onerror);
+        await execCommands(workdir, container, commands, onerror);
       }
 
       // running script
-      await execCommands(container, job.script, onerror);
+      await execCommands(workdir, container, job.script, onerror);
 
       // running after_script
       if (job.after_script || DEFAULT.after_script) {
         const commands = job.after_script ?? DEFAULT.after_script;
 
-        await execCommands(container, commands, onerror);
+        await execCommands(workdir, container, commands, onerror);
       }
 
+      // stopping and removing container when finishing
+      // TODO: do it onerror also
       await container.stop().catch(onerror);
-      await container.remove().catch(onerror);
+      await container.remove({ v: true }).catch(onerror);
 
       console.log(chalk.green("✓"), ` - ${name}`);
     }

@@ -5,12 +5,14 @@ image: node:lts-alpine3.12
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
-  untracked: true
+  #untracked: true
   policy: pull
+  paths: 
+    - node_modules
 
 stages:
   - prepare
-  # - test
+  - test
   # - build
   # - deploy
   # - schedule
@@ -21,3 +23,12 @@ include:
   # - local: '/ci/schedule.yml'
   # - local: '/ci/build.yml'
   # - local: '/ci/deploy.yml'
+
+test:unit:
+  stage: test
+  before_script:
+    - echo "Yay before script !"
+  script:
+    - ls
+  after_script:
+    - echo "Yay after script !"

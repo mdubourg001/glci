@@ -2,7 +2,9 @@
   "dependencies": {
     "chalk": "^4.1.0",
     "dockerode": "^3.2.1",
-    "js-yaml": "^4.0.0"
+    "js-yaml": "^4.0.0",
+    "nodegit": "^0.27.0",
+    "yargs": "^16.2.0"
   },
   "scripts": {
     "clean": "docker container prune"

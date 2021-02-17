@@ -1,1 +1,3 @@
 - [ ] Add "pre-defined" env variables to env
+- [ ] Add --read-dotenv to add .env variables in containers
+- [ ] Add --in-vagrant to run docker in Vagrant
