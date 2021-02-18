@@ -61,19 +61,28 @@ const GLOBAL_DEFAULT_KEY = [
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
-    const exec = await container
-      .exec({
+    console.log(chalk.green(command));
+    let stream = null;
+
+    try {
+      const exec = await container.exec({
         Cmd: ["sh", "-c", command],
         AttachStdout: true,
         AttachStderr: true,
         WorkingDir: workdir,
-      })
-      .catch(onerror);
+      });
 
-    const stream = await exec.start().catch(onerror);
+      stream = await exec.start();
+    } catch (err) {
+      await onerror(err, container);
+    }
 
-    container.modem.demuxStream(stream, process.stdout, process.stderr);
-    await new Promise((resolve) => stream.on("end", resolve));
+    await new Promise((resolve, reject) => {
+      stream.on("end", resolve);
+      container.modem.demuxStream(stream, process.stdout, {
+        write: (err) => reject(err.toString()),
+      });
+    });
   }
 }
 
@@ -158,19 +167,25 @@ async function main() {
             : DEFAULT.cache?.paths ?? [],
       };
 
-      const onerror = (err) => {
-        console.error(chalk.red("✘"), ` - ${name}`);
+      const onerror = async (err, container) => {
         console.error(err);
+        console.error(chalk.red("✘"), ` - ${name}`);
+
+        if (container) await container.stop();
         exit(1);
       };
 
-      // pulling the image to use
-      await new Promise((resolve, reject) =>
-        docker.pull(image, {}, (err, stream) => {
-          if (err) reject(err);
-          docker.modem.followProgress(stream, resolve);
-        })
-      ).catch(onerror);
+      try {
+        // pulling the image to use
+        await new Promise((resolve, reject) =>
+          docker.pull(image, {}, (err, stream) => {
+            if (err) reject(err);
+            docker.modem.followProgress(stream, resolve);
+          })
+        );
+      } catch (err) {
+        await onerror(err);
+      }
 
       const config = {
         Image: image,
@@ -196,32 +211,45 @@ async function main() {
 
       // console.log(config);
 
-      const container = await docker.createContainer(config).catch(onerror);
-      await container.start().catch(onerror);
+      let container = null;
 
-      // running before_script
-      if (job.before_script || DEFAULT.before_script) {
-        const commands = job.before_script ?? DEFAULT.before_script;
-
-        await execCommands(workdir, container, commands, onerror);
+      try {
+        container = await docker.createContainer(config);
+      } catch (err) {
+        await onerror(err);
       }
 
-      // running script
-      await execCommands(workdir, container, job.script, onerror);
-
-      // running after_script
-      if (job.after_script || DEFAULT.after_script) {
-        const commands = job.after_script ?? DEFAULT.after_script;
-
-        await execCommands(workdir, container, commands, onerror);
+      try {
+        await container.start();
+      } catch (err) {
+        await onerror(err, container);
       }
 
-      // stopping and removing container when finishing
-      // TODO: do it onerror also
-      await container.stop().catch(onerror);
-      //await container.remove({ v: true }).catch(onerror);
+      try {
+        // running before_script
+        if (job.before_script || DEFAULT.before_script) {
+          const commands = job.before_script ?? DEFAULT.before_script;
 
-      console.log(chalk.green("✓"), ` - ${name}`);
+          await execCommands(workdir, container, commands, onerror);
+        }
+
+        // running script
+        await execCommands(workdir, container, job.script, onerror);
+
+        // running after_script
+        if (job.after_script || DEFAULT.after_script) {
+          const commands = job.after_script ?? DEFAULT.after_script;
+
+          await execCommands(workdir, container, commands, onerror);
+        }
+
+        // stopping container when finishing
+        await container.stop();
+
+        console.log(chalk.green("✓"), ` - ${name}`);
+      } catch (err) {
+        await onerror(err, container);
+      }
     }
   }
 }

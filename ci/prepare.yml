@@ -9,5 +9,6 @@ install:
     - echo $FOO
     - echo $BAR
     - echo $BAZ
+    - node -e "exit(1)"
     - mkdir -p node_modules/foobar
     - echo "The current directory from the other job was $(pwd)" > node_modules/foobar/baz.txt
