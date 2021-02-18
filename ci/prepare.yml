@@ -3,5 +3,5 @@ install:
   cache:
     policy: pull-push
   script:
-    - yarn
-    - ls
+    - mkdir -p node_modules/foobar
+    - echo "The current directory from the other job was $(pwd)" > node_modules/foobar/baz.txt

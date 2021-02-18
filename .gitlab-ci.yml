@@ -29,6 +29,7 @@ test:unit:
   before_script:
     - echo "Yay before script !"
   script:
-    - ls
+    - pwd
+    - cat node_modules/foobar/baz.txt
   after_script:
     - echo "Yay after script !"

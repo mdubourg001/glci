@@ -55,7 +55,7 @@ async function execCommands(workdir, container, commands, onerror) {
 
     const exec = await container
       .exec({
-        Cmd: parsed,
+        Cmd: ["sh", "-c", command],
         AttachStdout: true,
         AttachStderr: true,
         WorkingDir: workdir,
@@ -172,46 +172,52 @@ async function main() {
         //   // add project volume to container
         //   //[process.cwd()]: {},
         //   ...cache.paths.reduce(
-        //     (curr, path) => ({
+        //     (curr, p) => ({
         //       ...curr,
-        //       [`${path}`]: {},
+        //       [`${workdir}/${p}`]: {},
         //     }),
         //     {}
         //   ),
         // },
-        // HostConfig: {
-        //   Binds: [
-        //     // binding project directory files as read-only
-        //     //...project.map((p) => `${LOCAL_CI_DIR}/${p}:${workdir}/${p}:ro`),
-        //     ...cache.paths.map(
-        //       (path) =>
-        //         `${LOCAL_CI_DIR}/${path}:${workdir}/${path}${
-        //           cache.policy === "pull" ? ":ro" : ""
-        //         }`
-        //     ),
-        //   ],
-        // },
-        Mounts: [
-          ...project.map((p) => ({
-            Source: path.resolve(process.cwd(), p),
-            Target: `${workdir}/${p}`,
-            Type: "bind",
-            ReadOnly: true,
-          })),
-          ...cache.paths.map((p) => ({
-            Source: path.resolve(LOCAL_CI_DIR, p),
-            Target: `${workdir}/${p}`,
-            Type: "volume",
-            ReadOnly: cache.policy === "pull",
-          })),
-        ],
+        HostConfig: {
+          AutoRemove: true,
+          Binds: [
+            // binding project directory files as read-only
+            //...project.map((p) => `${LOCAL_CI_DIR}/${p}:${workdir}/${p}:ro`),
+            ...project.map(
+              (p) => `${path.resolve(process.cwd(), p)}:${workdir}/${p}:ro`
+            ),
+            ...cache.paths.map(
+              (p) =>
+                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
+                  cache.policy === "pull" ? ":ro" : ""
+                }`
+            ),
+          ],
+          // Mounts: [
+          // ...project.map((p) => ({
+          //   Source: path.resolve(process.cwd(), p),
+          //   Target: `${workdir}/${p}`,
+          //   Type: "bind",
+          //   ReadOnly: true,
+          // })),
+          // ...cache.paths.map((p) => ({
+          //   Source: `${LOCAL_CI_DIR}/${p}`,
+          //   Target: `${workdir}/${p}`,
+          //   Type: "bind",
+          //   ReadOnly: cache.policy === "pull",
+          // })),
+          // ],
+        },
       };
 
-      for (const mount of config.Mounts) {
-        if (!fs.existsSync(mount.Source)) {
-          fs.mkdirSync(mount.Source, { recursive: true });
-        }
-      }
+      // console.log(config);
+
+      // for (const mount of config.Mounts) {
+      //   if (!fs.existsSync(mount.Source)) {
+      //     fs.mkdirSync(mount.Source, { recursive: true });
+      //   }
+      // }
 
       const container = await docker.createContainer(config).catch(onerror);
       await container.start().catch(onerror);
@@ -236,7 +242,7 @@ async function main() {
       // stopping and removing container when finishing
       // TODO: do it onerror also
       await container.stop().catch(onerror);
-      await container.remove({ v: true }).catch(onerror);
+      //await container.remove({ v: true }).catch(onerror);
 
       console.log(chalk.green("✓"), ` - ${name}`);
     }
