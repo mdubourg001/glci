@@ -1,3 +1,4 @@
 - [ ] Add "pre-defined" env variables to env
 - [ ] Add --env to allow defining / overriding env variables
 - [ ] Add --in-vagrant to run docker in Vagrant
+- [ ] Handle cache:untracked (https://git-scm.com/docs/git-ls-files --others)

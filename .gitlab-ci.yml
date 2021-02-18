@@ -34,5 +34,6 @@ test:unit:
   script:
     - pwd
     - cat node_modules/foobar/baz.txt
+    - node -e "exit(1)"
   after_script:
     - echo "Yay after script !"

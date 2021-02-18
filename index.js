@@ -13,7 +13,9 @@ const { hideBin } = require("yargs/helpers");
 
 const path = require("path");
 const fs = require("fs");
+const { performance } = require("perf_hooks");
 const { exit } = require("process");
+const { join } = require("path");
 
 // ----- globals -----
 
@@ -151,14 +153,13 @@ async function main() {
     // as default value for a job is "test"
     // see https://docs.gitlab.com/ee/ci/yaml/README.html#stages
     for (const name of jobs) {
+      const now = performance.now();
       const job = ci[name];
       const workdir = `/${commit}`;
       const image = job.image ?? DEFAULT.image;
       const variables = { ...ENV, ...DEFAULT.variables, ...job.variables };
       const cache = {
         policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
-        // TODO: handle "untracked"
-        // https://git-scm.com/docs/git-ls-files
         paths:
           job.cache?.paths ?? Array.isArray(job.cache)
             ? job.cache
@@ -167,9 +168,17 @@ async function main() {
             : DEFAULT.cache?.paths ?? [],
       };
 
+      const headline = `Running job "${name}" for stage "${
+        job.stage ?? "test"
+      }"`;
+      const delimiter = new Array(headline.length).fill("-").join("");
+      console.log(delimiter);
+      console.log(headline);
+      console.log(delimiter + "\n");
+
       const onerror = async (err, container) => {
-        console.error(err);
-        console.error(chalk.red("✘"), ` - ${name}`);
+        console.error(chalk.red(err));
+        console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
         exit(1);
@@ -245,11 +254,12 @@ async function main() {
 
         // stopping container when finishing
         await container.stop();
-
-        console.log(chalk.green("✓"), ` - ${name}`);
       } catch (err) {
         await onerror(err, container);
       }
+
+      const duration = ((performance.now() - now) / 1000).toFixed(2);
+      console.log(chalk.green("✓"), ` - ${name} in ${duration}s\n`);
     }
   }
 }
