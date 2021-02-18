@@ -1,5 +1,8 @@
 variables:
   NODE_VERSION: "12"
+  FOO: "initial foo"
+  BAR: "initial bar"
+  BAZ: "initial baz"
 
 image: node:lts-alpine3.12
 
@@ -8,7 +11,7 @@ cache:
   #untracked: true
   policy: pull
   paths: 
-    - node_modules
+    - node_modules  
 
 stages:
   - prepare

@@ -8,6 +8,7 @@ const Docker = require("dockerode");
 const git = require("nodegit");
 const chalk = require("chalk");
 const yargs = require("yargs/yargs");
+const dotenv = require("dotenv");
 const { hideBin } = require("yargs/helpers");
 
 const path = require("path");
@@ -23,6 +24,11 @@ const DEFAULT = {};
 // ----- constants -----
 
 const ARGV = yargs(hideBin(process.argv)).argv;
+
+const DOTENV_PATH = path.resolve(process.cwd(), ".env");
+const ENV = fs.existsSync(DOTENV_PATH)
+  ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
+  : {};
 
 const LOCAL_CI_DIR = ARGV.dir
   ? path.resolve(process.cwd(), ARGV.dir)
@@ -43,16 +49,18 @@ const RESERVED_JOB_NAMES = [
 
 // keys that can appear in "default" key
 // https://docs.gitlab.com/ee/ci/yaml/README.html#global-defaults
-const GLOBAL_DEFAULT_KEY = ["image", "before_script", "after_script", "cache"];
+const GLOBAL_DEFAULT_KEY = [
+  "image",
+  "before_script",
+  "after_script",
+  "cache",
+  "variables",
+];
 
 // ----- main -----
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
-    const parsed = command
-      .match(/"[^"]*"|\S+/g)
-      .map((m) => (m.slice(0, 1) === '"' ? m.slice(1, -1) : m));
-
     const exec = await container
       .exec({
         Cmd: ["sh", "-c", command],
@@ -137,6 +145,7 @@ async function main() {
       const job = ci[name];
       const workdir = `/${commit}`;
       const image = job.image ?? DEFAULT.image;
+      const variables = { ...ENV, ...DEFAULT.variables, ...job.variables };
       const cache = {
         policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
         // TODO: handle "untracked"
@@ -149,11 +158,9 @@ async function main() {
             : DEFAULT.cache?.paths ?? [],
       };
 
-      const onerror = async (err) => {
+      const onerror = (err) => {
         console.error(chalk.red("✘"), ` - ${name}`);
         console.error(err);
-
-        //await docker.pruneContainers();
         exit(1);
       };
 
@@ -168,25 +175,15 @@ async function main() {
       const config = {
         Image: image,
         Tty: true,
-        // Volumes: {
-        //   // add project volume to container
-        //   //[process.cwd()]: {},
-        //   ...cache.paths.reduce(
-        //     (curr, p) => ({
-        //       ...curr,
-        //       [`${workdir}/${p}`]: {},
-        //     }),
-        //     {}
-        //   ),
-        // },
+        Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
           Binds: [
             // binding project directory files as read-only
-            //...project.map((p) => `${LOCAL_CI_DIR}/${p}:${workdir}/${p}:ro`),
             ...project.map(
               (p) => `${path.resolve(process.cwd(), p)}:${workdir}/${p}:ro`
             ),
+            // binding cache directories / files
             ...cache.paths.map(
               (p) =>
                 `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
@@ -194,30 +191,10 @@ async function main() {
                 }`
             ),
           ],
-          // Mounts: [
-          // ...project.map((p) => ({
-          //   Source: path.resolve(process.cwd(), p),
-          //   Target: `${workdir}/${p}`,
-          //   Type: "bind",
-          //   ReadOnly: true,
-          // })),
-          // ...cache.paths.map((p) => ({
-          //   Source: `${LOCAL_CI_DIR}/${p}`,
-          //   Target: `${workdir}/${p}`,
-          //   Type: "bind",
-          //   ReadOnly: cache.policy === "pull",
-          // })),
-          // ],
         },
       };
 
       // console.log(config);
-
-      // for (const mount of config.Mounts) {
-      //   if (!fs.existsSync(mount.Source)) {
-      //     fs.mkdirSync(mount.Source, { recursive: true });
-      //   }
-      // }
 
       const container = await docker.createContainer(config).catch(onerror);
       await container.start().catch(onerror);
@@ -247,9 +224,6 @@ async function main() {
       console.log(chalk.green("✓"), ` - ${name}`);
     }
   }
-
-  // TODO: prune only containers created during the process
-  //await docker.pruneContainers();
 }
 
 main();

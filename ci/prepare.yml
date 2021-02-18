@@ -2,6 +2,12 @@ install:
   stage: prepare
   cache:
     policy: pull-push
+  variables:
+    BAZ: "muted baz"
   script:
+    - echo $FOOBAR
+    - echo $FOO
+    - echo $BAR
+    - echo $BAZ
     - mkdir -p node_modules/foobar
     - echo "The current directory from the other job was $(pwd)" > node_modules/foobar/baz.txt
