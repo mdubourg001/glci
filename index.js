@@ -15,7 +15,8 @@ const path = require("path");
 const fs = require("fs");
 const { performance } = require("perf_hooks");
 const { exit } = require("process");
-const { join } = require("path");
+
+const define = require("./pre-defined");
 
 // ----- globals -----
 
@@ -89,11 +90,14 @@ async function execCommands(workdir, container, commands, onerror) {
 }
 
 async function main() {
-  if (!fs.existsSync("./.gitlab-ci.yml")) {
+  if (!fs.existsSync(path.resolve(process.cwd(), ".gitlab-ci.yml"))) {
     throw "No .gitlab-ci.yml file found in current working directory.";
   }
 
-  const gitlabci = fs.readFileSync("./.gitlab-ci.yml", "utf8");
+  const gitlabci = fs.readFileSync(
+    path.resolve(process.cwd(), ".gitlab-ci.yml"),
+    "utf8"
+  );
   let ci = yaml.load(gitlabci);
 
   if (typeof ci !== "object") {
@@ -107,10 +111,10 @@ async function main() {
 
   const docker = new Docker();
   const repository = await git.Repository.open(".");
-  const commit = (await repository.getHeadCommit()).sha().slice(0, 7);
+  const commit = await repository.getHeadCommit();
+  const sha = commit.sha().slice(0, 7);
 
-  const master = await repository.getMasterCommit();
-  const tree = await master.getTree();
+  const tree = await commit.getTree();
   const walker = tree.walk();
   let project = [];
 
@@ -149,15 +153,17 @@ async function main() {
   // running stages by order of definition in the "stages" key
   for (const stage of ci.stages) {
     const jobs = JOBS_NAMES.filter((j) => (ci[j].stage ?? "test") === stage);
+    let index = 0;
 
     // as default value for a job is "test"
     // see https://docs.gitlab.com/ee/ci/yaml/README.html#stages
     for (const name of jobs) {
+      index++;
+
       const now = performance.now();
       const job = ci[name];
-      const workdir = `/${commit}`;
+      const workdir = `/${sha}`;
       const image = job.image ?? DEFAULT.image;
-      const variables = { ...ENV, ...DEFAULT.variables, ...job.variables };
       const cache = {
         policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
         paths:
@@ -166,6 +172,21 @@ async function main() {
             : Array.isArray(DEFAULT.cache)
             ? DEFAULT.cache
             : DEFAULT.cache?.paths ?? [],
+      };
+
+      const preDefined = await define({
+        ...job,
+        name,
+        index,
+        image,
+        cache,
+        workdir,
+      });
+      const variables = {
+        ...preDefined,
+        ...ENV,
+        ...DEFAULT.variables,
+        ...job.variables,
       };
 
       const headline = `Running job "${name}" for stage "${
@@ -259,7 +280,7 @@ async function main() {
       }
 
       const duration = ((performance.now() - now) / 1000).toFixed(2);
-      console.log(chalk.green("✓"), ` - ${name} in ${duration}s\n`);
+      console.log(chalk.green("✓"), ` - ${name} (${duration}s)\n`);
     }
   }
 }
