@@ -8,8 +8,9 @@ const Docker = require("dockerode");
 const git = require("nodegit");
 const chalk = require("chalk");
 const yargs = require("yargs/yargs");
-const dotenv = require("dotenv");
 const { hideBin } = require("yargs/helpers");
+const dotenv = require("dotenv");
+const glob = require("glob");
 
 const path = require("path");
 const fs = require("fs");
@@ -23,6 +24,8 @@ const define = require("./pre-defined");
 const JOBS_NAMES = [];
 
 const DEFAULT = {};
+
+const ARTIFACTS = [];
 
 // ----- constants -----
 
@@ -110,16 +113,25 @@ async function main() {
   }
 
   const docker = new Docker();
+  //const docker = new Docker({ host: "172.16.3.2", port: 2376 });
+
+  try {
+    await docker.version();
+  } catch {
+    console.error("Docker daemon does not seem to be running.");
+    process.exit(1);
+  }
+
   const repository = await git.Repository.open(".");
   const commit = await repository.getHeadCommit();
   const sha = commit.sha().slice(0, 7);
 
   const tree = await commit.getTree();
   const walker = tree.walk();
-  let project = [];
+  let projectFiles = [];
 
   // listing .git project files
-  walker.on("entry", (entry) => project.push(entry.path()));
+  walker.on("entry", (entry) => projectFiles.push(entry.path()));
   walker.start();
 
   // handling inclusion of other yaml files
@@ -162,6 +174,16 @@ async function main() {
 
       const now = performance.now();
       const job = ci[name];
+
+      // pushing artifacts paths in global artifacts
+      if ("artifacts" in job) {
+        for (const file of job.artifacts.paths) {
+          if (!ARTIFACTS.includes(file)) {
+            ARTIFACTS.push(file);
+          }
+        }
+      }
+
       const workdir = `/${sha}`;
       const image = job.image ?? DEFAULT.image;
       const cache = {
@@ -174,12 +196,27 @@ async function main() {
             : DEFAULT.cache?.paths ?? [],
       };
 
+      let artifactsFiles = ARTIFACTS;
+
+      // filtering to bind artifacts from specified jobs only
+      if (job.dependencies) {
+        artifactsFiles = ARTIFACTS.filter((file) =>
+          job.dependencies.some((jobName) =>
+            ci[jobName].artifacts?.paths?.includes(file)
+          )
+        );
+      }
+
+      // filtering artifacts files against cache files
+      artifactsFiles = artifactsFiles.filter(
+        (file) => !cache.paths.includes(file)
+      );
+
       const preDefined = await define({
         ...job,
         name,
         index,
         image,
-        cache,
         workdir,
       });
       const variables = {
@@ -225,7 +262,7 @@ async function main() {
           AutoRemove: true,
           Binds: [
             // binding project directory files as read-only
-            ...project.map(
+            ...projectFiles.map(
               (p) => `${path.resolve(process.cwd(), p)}:${workdir}/${p}:ro`
             ),
             // binding cache directories / files
@@ -235,11 +272,16 @@ async function main() {
                   cache.policy === "pull" ? ":ro" : ""
                 }`
             ),
+            // binding artifacts directories / files
+            ...artifactsFiles.map(
+              (p) =>
+                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
+                  job.artifacts?.paths?.includes(p) ? "" : ":ro"
+                }`
+            ),
           ],
         },
       };
-
-      // console.log(config);
 
       let container = null;
 

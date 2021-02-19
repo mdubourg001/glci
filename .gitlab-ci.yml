@@ -14,6 +14,7 @@ cache:
     - node_modules  
 
 stages:
+  - pre-prepare
   - prepare
   - test
   # - build
@@ -27,13 +28,27 @@ include:
   # - local: '/ci/build.yml'
   # - local: '/ci/deploy.yml'
 
+pre:
+  stage: pre-prepare
+  script:
+    - mkdir -p test1
+    - touch test1/test.txt
+  artifacts:
+    paths:
+      - test1
+
 test:unit:
   stage: test
   before_script:
     - echo "Yay before script !"
   script:
-    - pwd
-    - cat node_modules/foobar/baz.txt
-    - node -e "exit(1)"
+    - ls node_modules
   after_script:
     - echo "Yay after script !"
+  dependencies:
+    - install
+
+failingjob:
+  stage: test
+  script:
+    - node -e "exit(1);"
