@@ -10,7 +10,8 @@ const chalk = require("chalk");
 const yargs = require("yargs/yargs");
 const { hideBin } = require("yargs/helpers");
 const dotenv = require("dotenv");
-const glob = require("glob");
+const ssh = require("docker-modem/lib/ssh");
+// const glob = require("glob");
 
 const path = require("path");
 const fs = require("fs");
@@ -112,12 +113,30 @@ async function main() {
     throw "No 'stages' keyword found in your .gitlab-ci.yml.";
   }
 
+  //const docker = new Docker();
+
+  // hacky way
+  // const agent = ssh({
+  //   host: "127.0.0.1",
+  //   port: 2222,
+  //   username: "vagrant",
+  //   privateKey: fs.readFileSync(
+  //     "/Users/maxime.dubourg/.vagrant.d/insecure_private_key"
+  //   ),
+  // });
+
+  // const docker = new Docker({
+  //   protocol: "http",
+  //   username: "vagrant",
+  //   agent,
+  // });
+
   const docker = new Docker();
-  //const docker = new Docker({ host: "172.16.3.2", port: 2376 });
 
   try {
     await docker.version();
-  } catch {
+  } catch (err) {
+    console.error(err);
     console.error("Docker daemon does not seem to be running.");
     process.exit(1);
   }
