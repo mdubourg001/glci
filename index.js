@@ -1,8 +1,3 @@
-// @ts-nocheck
-// https://docs.gitlab.com/ee/ci/yaml/README.html
-// https://github.com/apocas/dockerode
-// https://docs.gitlab.com/runner/commands/#gitlab-runner-exec
-
 const yaml = require("js-yaml");
 const Docker = require("dockerode");
 const git = require("nodegit");
@@ -31,6 +26,10 @@ const ARTIFACTS = [];
 // ----- constants -----
 
 const ARGV = yargs(hideBin(process.argv)).argv;
+
+const ONLY_JOBS = ARGV["only-jobs"]?.split
+  ? ARGV["only-jobs"].split(",")
+  : undefined;
 
 const DOTENV_PATH = path.resolve(process.cwd(), ".env");
 const ENV = fs.existsSync(DOTENV_PATH)
@@ -68,7 +67,7 @@ const GLOBAL_DEFAULT_KEY = [
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
-    console.log(chalk.green(chalk.bold(command)));
+    console.log(chalk.bold(chalk.green(command)));
     let exec = null;
     let stream = null;
 
@@ -121,7 +120,7 @@ async function main() {
 
   //const docker = new Docker();
 
-  // hacky way
+  // hacky way to do docker over ssh
   // const agent = ssh({
   //   host: "127.0.0.1",
   //   port: 2222,
@@ -172,7 +171,6 @@ async function main() {
     }
 
     ci = { ...ci, ...yaml.load(included) };
-    //console.log(ci, "\n\n============\n");
   }
 
   // figuring out default values
@@ -189,7 +187,10 @@ async function main() {
 
   // running stages by order of definition in the "stages" key
   for (const stage of ci.stages) {
-    const jobs = JOBS_NAMES.filter((j) => (ci[j].stage ?? "test") === stage);
+    const jobs = JOBS_NAMES.filter(
+      (job) => (ci[job].stage ?? "test") === stage
+    ).filter((job) => (ONLY_JOBS ? ONLY_JOBS.includes(job) : true));
+
     let index = 0;
 
     // as default value for a job is "test"
@@ -280,7 +281,7 @@ async function main() {
                 if (!downloading) {
                   console.log(
                     chalk.bold(
-                      `${chalk.blue("ℹ")} - Using existing image "${image}"...`
+                      `${chalk.blue("ℹ")} - Using existing image "${image}"`
                     )
                   );
                 }
@@ -377,4 +378,15 @@ async function main() {
   }
 }
 
-main();
+if (ARGV.help || ARGV.h) {
+  console.log(`local-ci: Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
+
+local-ci options:
+    --only-jobs [jobs]: limiting the jobs to run to the comma-separated list of jobs name given
+    -h:                 display this help message
+
+Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. local-ci **does NOT** aim to replace any other tool.
+`);
+} else {
+  main();
+}
