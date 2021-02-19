@@ -68,11 +68,12 @@ const GLOBAL_DEFAULT_KEY = [
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
-    console.log(chalk.green(command));
+    console.log(chalk.green(chalk.bold(command)));
+    let exec = null;
     let stream = null;
 
     try {
-      const exec = await container.exec({
+      exec = await container.exec({
         Cmd: ["sh", "-c", command],
         AttachStdout: true,
         AttachStderr: true,
@@ -85,9 +86,14 @@ async function execCommands(workdir, container, commands, onerror) {
     }
 
     await new Promise((resolve, reject) => {
-      stream.on("end", resolve);
+      stream.on("end", async () => {
+        const inspect = await exec.inspect();
+
+        if (inspect.ExitCode !== 0) reject();
+        resolve();
+      });
       container.modem.demuxStream(stream, process.stdout, {
-        write: (err) => reject(err.toString()),
+        write: (err) => console.error(chalk.red(err.toString())),
       });
     });
   }
@@ -136,7 +142,7 @@ async function main() {
   try {
     await docker.version();
   } catch (err) {
-    console.error(err);
+    console.error(chalk.red(err));
     console.error("Docker daemon does not seem to be running.");
     process.exit(1);
   }
@@ -245,16 +251,16 @@ async function main() {
         ...job.variables,
       };
 
-      const headline = `Running job "${name}" for stage "${
+      const headline = `Running job "${chalk.yellow(name)}" for stage "${
         job.stage ?? "test"
       }"`;
       const delimiter = new Array(headline.length).fill("-").join("");
-      console.log(delimiter);
-      console.log(headline);
-      console.log(delimiter + "\n");
+      console.log(chalk.bold(delimiter));
+      console.log(chalk.bold(headline));
+      console.log(chalk.bold(delimiter + "\n"));
 
       const onerror = async (err, container) => {
-        console.error(chalk.red(err));
+        if (err) console.error(chalk.red(err));
         console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
@@ -266,7 +272,32 @@ async function main() {
         await new Promise((resolve, reject) =>
           docker.pull(image, {}, (err, stream) => {
             if (err) reject(err);
-            docker.modem.followProgress(stream, resolve);
+
+            let downloading = false;
+            docker.modem.followProgress(
+              stream,
+              () => {
+                if (!downloading) {
+                  console.log(
+                    chalk.bold(
+                      `${chalk.blue("ℹ")} - Using existing image "${image}"...`
+                    )
+                  );
+                }
+
+                resolve();
+              },
+              (progress) => {
+                if (!downloading && progress.status === "Downloading") {
+                  downloading = true;
+                  console.log(
+                    chalk.bold(
+                      `${chalk.blue("ℹ")} - Pulling image "${image}"...`
+                    )
+                  );
+                }
+              }
+            );
           })
         );
       } catch (err) {

@@ -10,12 +10,12 @@ cache:
   key: ${CI_COMMIT_REF_SLUG}
   #untracked: true
   policy: pull
-  paths: 
-    - node_modules  
+  paths:
+    - node_modules
 
 stages:
-  - pre-prepare
-  - prepare
+  #- pre-prepare
+  #- prepare
   - test
   # - build
   # - deploy
@@ -37,18 +37,21 @@ pre:
     paths:
       - test1
 
-test:unit:
-  stage: test
-  before_script:
-    - echo "Yay before script !"
-  script:
-    - ls node_modules
-  after_script:
-    - echo "Yay after script !"
-  dependencies:
-    - install
+# test:unit:
+#   stage: test
+#   before_script:
+#     - echo "Yay before script !"
+#   script:
+#     - ls node_modules
+#   after_script:
+#     - echo "Yay after script !"
+#   dependencies:
+#     - install
 
 failingjob:
   stage: test
   script:
+    - echo 1
+    - echo 2
     - node -e "exit(1);"
+    - echo 3
