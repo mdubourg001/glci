@@ -319,16 +319,16 @@ async function main() {
             // binding cache directories / files
             ...cache.paths.map(
               (p) =>
-                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
-                  cache.policy === "pull" ? ":ro" : ""
-                }`
+                `${LOCAL_CI_DIR}/${p}:${
+                  p.startsWith("/") ? p : workdir + "/" + p
+                }${cache.policy === "pull" ? ":ro" : ""}`
             ),
             // binding artifacts directories / files
             ...artifactsFiles.map(
               (p) =>
-                `${LOCAL_CI_DIR}/${p}:${workdir}/${p}${
-                  job.artifacts?.paths?.includes(p) ? "" : ":ro"
-                }`
+                `${LOCAL_CI_DIR}/${p}:${
+                  p.startsWith("/") ? p : workdir + "/" + p
+                }${job.artifacts?.paths?.includes(p) ? "" : ":ro"}`
             ),
           ],
         },
