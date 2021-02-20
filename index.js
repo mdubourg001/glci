@@ -37,7 +37,7 @@ const ENV = fs.existsSync(DOTENV_PATH)
 
 const LOCAL_CI_DIR = ARGV.dir
   ? path.resolve(process.cwd(), ARGV.dir)
-  : path.resolve(process.cwd(), ".local-ci");
+  : path.resolve(process.cwd(), ".glci");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -378,13 +378,13 @@ async function main() {
 }
 
 if (ARGV.help || ARGV.h) {
-  console.log(`local-ci: Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
+  console.log(`glci: Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
 
-local-ci options:
+glci options:
     --only-jobs [jobs]: limiting the jobs to run to the comma-separated list of jobs name given
     -h:                 display this help message
 
-Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. local-ci **does NOT** aim to replace any other tool.
+Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 `);
 } else {
   main();

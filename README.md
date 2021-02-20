@@ -1,15 +1,15 @@
-# local-ci 🦊
+# glci 🦊
 
 Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
 
 Why ? Because I did not wanted to commit, push, and wait for my jobs to run on the GitLab UI to figure I forgot to install `make` before running `make build`.
 
-📣 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. local-ci **does NOT** aim to replace any other tool.
+📣 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 
 ## Installation
 
 ```bash
-yarn global add local-ci
+yarn global add glci
 ```
 
 ## Usage
@@ -17,7 +17,7 @@ yarn global add local-ci
 At the root of your project (where your `.gitlab-ci.yml` is):
 
 ```bash
-local-ci
+glci
 ```
 
 ## Options
@@ -29,7 +29,7 @@ Limiting the jobs to run to the comma-separated list of jobs name given. Handy w
 Example:
 
 ```bash
-local-ci --only-jobs=install,test:e2e
+glci --only-jobs=install,test:e2e
 
 # "build" and "test:unit" won't be ran here
 #

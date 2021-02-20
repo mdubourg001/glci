@@ -1,9 +1,9 @@
 {
-  "name": "local-ci",
+  "name": "glci",
   "description": "Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.",
   "main": "index.js",
   "bin": {
-    "local-ci": "./dist/cli.min.js"
+    "glci": "./dist/cli.min.js"
   },
   "keywords": [
     "gitlab",
@@ -13,10 +13,10 @@
     "pipelines",
     "jobs"
   ],
-  "homepage": "https://github.com/mdubourg001/local-ci",
+  "homepage": "https://github.com/mdubourg001/glci",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mdubourg001/local-ci"
+    "url": "https://github.com/mdubourg001/glci"
   },
   "license": "MIT",
   "author": {
@@ -45,5 +45,6 @@
   "scripts": {
     "build": "rollup -c",
     "prepublish": "yarn build"
-  }
+  },
+  "version": "0.0.1"
 }
