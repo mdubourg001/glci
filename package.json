@@ -39,6 +39,7 @@
     "@babel/plugin-proposal-optional-chaining": "^7.12.17",
     "@rollup/plugin-babel": "^5.3.0",
     "@rollup/plugin-commonjs": "^17.1.0",
+    "np": "^7.4.0",
     "rollup": "^2.39.0",
     "rollup-plugin-preserve-shebang": "^1.0.1"
   },
