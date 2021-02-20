@@ -22,7 +22,7 @@ glci
 
 ## Options
 
-### `--only-options [jobs]`
+### `--only-jobs [jobs]`
 
 Limiting the jobs to run to the comma-separated list of jobs name given. Handy when setting up that stage-three job depending on that first-stage job artifacts.
 
