@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const yaml = require("js-yaml");
 const Docker = require("dockerode");
 const git = require("nodegit");
@@ -5,13 +7,10 @@ const chalk = require("chalk");
 const yargs = require("yargs/yargs");
 const { hideBin } = require("yargs/helpers");
 const dotenv = require("dotenv");
-const ssh = require("docker-modem/lib/ssh");
-// const glob = require("glob");
 
 const path = require("path");
 const fs = require("fs");
 const { performance } = require("perf_hooks");
-const { exit } = require("process");
 
 const define = require("./pre-defined");
 
@@ -265,7 +264,7 @@ async function main() {
         console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
-        exit(1);
+        process.exit(1);
       };
 
       try {

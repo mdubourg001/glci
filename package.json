@@ -1,6 +1,29 @@
 {
   "name": "local-ci",
+  "description": "Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.",
+  "main": "index.js",
+  "bin": {
+    "local-ci": "./dist/cli.min.js"
+  },
+  "keywords": [
+    "gitlab",
+    "ci",
+    "local",
+    "docker",
+    "pipelines",
+    "jobs"
+  ],
+  "homepage": "https://github.com/mdubourg001/local-ci",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mdubourg001/local-ci"
+  },
   "license": "MIT",
+  "author": {
+    "name": "Maxime Dubourg",
+    "email": "maxime.dubourg@protonmail.com",
+    "url": "https://maximedubourg.com/"
+  },
   "dependencies": {
     "chalk": "^4.1.0",
     "dockerode": "^3.2.1",
@@ -10,7 +33,17 @@
     "nodegit": "^0.27.0",
     "yargs": "^16.2.0"
   },
+  "devDependencies": {
+    "@babel/core": "^7.12.17",
+    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.12.13",
+    "@babel/plugin-proposal-optional-chaining": "^7.12.17",
+    "@rollup/plugin-babel": "^5.3.0",
+    "@rollup/plugin-commonjs": "^17.1.0",
+    "rollup": "^2.39.0",
+    "rollup-plugin-preserve-shebang": "^1.0.1"
+  },
   "scripts": {
-    "clean": "docker container prune"
+    "build": "rollup -c",
+    "prepublish": "yarn build"
   }
 }
