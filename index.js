@@ -36,12 +36,10 @@ const ENV = fs.existsSync(DOTENV_PATH)
   ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
   : {};
 
-const LOCAL_CI_DIR = ARGV.dir
-  ? path.resolve(process.cwd(), ARGV.dir)
-  : path.resolve(process.cwd(), ".glci");
+const LOCAL_CI_BASE = ARGV.dir ?? ".glci";
 
+const LOCAL_CI_DIR = path.resolve(process.cwd(), LOCAL_CI_BASE);
 const LOCAL_CI_CACHE_DIR = path.join(LOCAL_CI_DIR, ".glci_cache");
-
 const LOCAL_CI_ARTIFACTS_DIR = path.join(LOCAL_CI_DIR, ".glci_artifacts");
 
 // keys unusable as job name because reserved
@@ -154,6 +152,15 @@ async function main() {
     console.error(chalk.red(err));
     console.error("Docker daemon does not seem to be running.");
     process.exit(1);
+  }
+
+  // cleaning the .glci directory if asked
+  if (ARGV.clean) {
+    console.log(
+      chalk.bold(`${chalk.blue("ℹ")} - Removing "${LOCAL_CI_BASE}"...\n`)
+    );
+
+    fs.removeSync(LOCAL_CI_DIR);
   }
 
   const repository = await git.Repository.open(".");

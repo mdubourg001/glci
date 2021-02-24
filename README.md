@@ -46,6 +46,14 @@ glci --only-jobs=install,test:e2e
 #                                ------------
 ```
 
+### `--dir <directory_name>`
+
+Changing the directory where glci keeps cache and artifacts between jobs. Defaults to `.glci`.
+
+### `--clean`
+
+Removing the directory given to `--dir` (default to `.glci`) before running glci.
+
 ## Cool stuff
 
 - If a `.env` file exists next to your `.gitlab-ci.yml`, variables inside it get automatically parsed and added to the containers
@@ -65,7 +73,7 @@ It's pretty straightforward:
 
 - Handle glob in `cache:paths` and `artifacts:paths` (need to figure out how)
 - Handle `artifacts:untracked` and `cache:untracked` (need to figure out how)
-- Add a `--clean` option to `rm -rf .glci` before execution
+- Handle `artifacts:exclude` (supports globs too)
 - Add `--env` to allow defining / overriding env variables
 - Add `--in-vagrant` to run docker in Vagrant (not faster even on Mac for what I've tried)
 - Prevent sharing artifacts between same-stage jobs
