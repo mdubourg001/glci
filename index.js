@@ -202,9 +202,11 @@ async function main() {
 
       // pushing artifacts paths in global artifacts
       if ("artifacts" in job) {
-        for (const file of job.artifacts.paths) {
-          if (!ARTIFACTS.includes(file)) {
-            ARTIFACTS.push(file);
+        if ("paths" in job.artifacts) {
+          for (const file of job.artifacts.paths) {
+            if (!ARTIFACTS.includes(file)) {
+              ARTIFACTS.push(file);
+            }
           }
         }
       }
