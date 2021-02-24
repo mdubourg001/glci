@@ -20,6 +20,10 @@ At the root of your project (where your `.gitlab-ci.yml` is):
 glci
 ```
 
+⚠️ You might want to add `.glci` to your `.gitignore` file to prevent committing it.
+
+⚠️ If you are running glci on Linux, you might need to run it as root as volumes are automatically mounted as root.
+
 ## Options
 
 ### `--only-jobs [jobs]`

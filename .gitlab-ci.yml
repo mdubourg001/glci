@@ -59,7 +59,6 @@ test:cacheworks:
     - ls -lA node_modules/lodash/*
     - test -f foo.txt && echo "foo.txt exists."
     - test -f bar/bar.txt && echo "foo.txt exists."
-    - test -f pretestfile.txt && echo "pretestfile.txt exists."
   dependencies:
     - pre
 

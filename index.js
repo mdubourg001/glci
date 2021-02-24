@@ -245,22 +245,6 @@ async function main() {
         };
       }
 
-      //let artifactsFiles = ARTIFACTS;
-
-      // filtering to bind artifacts from specified jobs only
-      // if (job.dependencies) {
-      //   artifactsFiles = ARTIFACTS.filter((file) =>
-      //     job.dependencies.some((jobName) =>
-      //       ci[jobName].artifacts?.paths?.includes(file)
-      //     )
-      //   );
-      // }
-
-      // filtering artifacts files against cache files
-      // artifactsFiles = artifactsFiles.filter(
-      //   (file) => !cache.paths?.includes(file)
-      // );
-
       const preDefined = await define({
         ...job,
         name,
@@ -329,7 +313,7 @@ async function main() {
         await onerror(err);
       }
 
-      // copying project files inside .glci to allow non-read-only bind
+      // copying project files inside .glci to allow non-read-only bind (git clone)
       for (const file of projectFiles) {
         mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
 
@@ -340,10 +324,27 @@ async function main() {
         );
       }
 
+      // copying needed cache files in temp project files directory (pull cache)
+      if (cache.policy !== "push") {
+        for (const file of cache.paths) {
+          const fileAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+
+          if (fs.existsSync(fileAbs)) {
+            mkdirpRecSync(
+              path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file))
+            );
+
+            fs.copySync(fileAbs, path.join(PROJECT_FILES_TEMP_DIR, file), {
+              recursive: true,
+            });
+          }
+        }
+      }
+
       // take only dependencies artifacts if exists else every artifact generated before
       let artifactsSources = job.dependencies ?? Object.keys(ARTIFACTS);
 
-      // copying artifacts inside temp project files directory
+      // copying artifacts inside temp project files directory (pull artifacts)
       for (const jobName of artifactsSources) {
         for (const file of Object.keys(ARTIFACTS[jobName] ?? {})) {
           mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
@@ -362,18 +363,7 @@ async function main() {
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
-          Binds: [
-            // binding the copy of project directory + artifacts
-            `${PROJECT_FILES_TEMP_DIR}:${workdir}`,
-            // binding cache directories / files
-            // TODO: "Snapshot" and restore the _cache dir if policy === pull
-            ...cache.paths
-              .filter((p) => fs.existsSync(path.join(LOCAL_CI_CACHE_DIR, p)))
-              .map(
-                (p) =>
-                  `${path.join(LOCAL_CI_CACHE_DIR, p)}:${path.join(workdir, p)}`
-              ),
-          ],
+          Binds: [`${PROJECT_FILES_TEMP_DIR}:${workdir}`],
         },
       };
 
