@@ -163,7 +163,7 @@ async function main() {
 
     for (const entry of ci.include) {
       if ("local" in entry) {
-        included += fs.readFileSync(process.cwd() + entry.local) + "\n";
+        included += fs.readFileSync(path.join(process.cwd(), entry.local)) + "\n";
       } else {
         throw "Only 'local' includes are supported at the moment.";
       }
