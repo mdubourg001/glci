@@ -6,7 +6,7 @@ variables:
 
 image: node:lts-alpine3.12
 
-cache:
+cache: &global_cache
   key: ${CI_COMMIT_REF_SLUG}
   #untracked: true
   policy: pull
@@ -30,15 +30,19 @@ include:
 
 pre:
   stage: pre-prepare
+  cache:
+    <<: *global_cache
+    policy: pull-push
   before_script:
-    - apk add --no-cache git
+    - whoami
   script:
-    - mkdir -p test1
-    - touch test1/test.txt
-    - git status
-  artifacts:
-    paths:
-      - test1
+    - mkdir -p node_modules/lodash
+    - touch node_modules/lodash/index.js
+
+test:cacheworks:
+  stage: test
+  script:
+    - ls -lA node_modules/lodash/*
 
 test:unit:
   stage: test

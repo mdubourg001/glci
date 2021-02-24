@@ -38,6 +38,8 @@ const LOCAL_CI_DIR = ARGV.dir
   ? path.resolve(process.cwd(), ARGV.dir)
   : path.resolve(process.cwd(), ".glci");
 
+const LOCAL_CI_CACHE_DIR = path.join(LOCAL_CI_DIR, ".glci_cache");
+
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
   "image",
@@ -62,6 +64,12 @@ const GLOBAL_DEFAULT_KEY = [
 ];
 
 // ----- main -----
+
+function mkdirpRecSync(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
@@ -148,6 +156,8 @@ async function main() {
   const commit = await repository.getHeadCommit();
   const sha = commit.sha().slice(0, 7);
 
+  const PROJECT_FILES_TEMP_DIR = path.join(LOCAL_CI_DIR, sha);
+
   const tree = await commit.getTree();
   const walker = tree.walk();
   let projectFiles = [];
@@ -225,15 +235,20 @@ async function main() {
         ? DEFAULT.image.name
         : DEFAULT.image;
 
-      const cache = {
-        policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
-        paths:
-          job.cache?.paths ?? Array.isArray(job.cache)
-            ? job.cache
-            : Array.isArray(DEFAULT.cache)
-            ? DEFAULT.cache
-            : DEFAULT.cache?.paths ?? [],
-      };
+      let cache = {};
+      if ("cache" in job) {
+        cache = {
+          policy: job.cache.policy ?? "pull-push",
+          paths: job.cache.paths ?? (Array.isArray(job.cache) ? job.cache : []),
+        };
+      } else {
+        cache = {
+          policy: DEFAULT.cache?.policy ?? "pull-push",
+          paths:
+            DEFAULT.cache?.paths ??
+            (Array.isArray(DEFAULT.cache) ? DEFAULT.cache : []),
+        };
+      }
 
       let artifactsFiles = ARTIFACTS;
 
@@ -248,7 +263,7 @@ async function main() {
 
       // filtering artifacts files against cache files
       artifactsFiles = artifactsFiles.filter(
-        (file) => !cache.paths.includes(file)
+        (file) => !cache.paths?.includes(file)
       );
 
       const preDefined = await define({
@@ -278,6 +293,7 @@ async function main() {
         console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
+        fs.removeSync(PROJECT_FILES_TEMP_DIR);
         process.exit(1);
       };
 
@@ -319,18 +335,13 @@ async function main() {
       }
 
       // copying project files inside .glci to allow non-read-only bind
-      const projectFilesTemp = path.join(LOCAL_CI_DIR, sha);
-
       for (const file of projectFiles) {
-        if (!fs.existsSync(path.join(projectFilesTemp, path.dirname(file)))) {
-          fs.mkdirSync(path.join(projectFilesTemp, path.dirname(file)), {
-            recursive: true,
-          });
-        }
+        mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
 
         fs.copySync(
           `${path.resolve(process.cwd(), file)}`,
-          path.join(projectFilesTemp, file)
+          path.join(PROJECT_FILES_TEMP_DIR, file),
+          { recursive: true }
         );
       }
 
@@ -341,25 +352,28 @@ async function main() {
         HostConfig: {
           AutoRemove: true,
           Binds: [
-            // binding the copy of project directory files
-            `${projectFilesTemp}:${workdir}`,
+            // binding the copy of project directory
+            `${PROJECT_FILES_TEMP_DIR}:${workdir}`,
             // binding cache directories / files
-            ...cache.paths.map(
-              (p) =>
-                `${LOCAL_CI_DIR}/${p}:${
-                  p.startsWith("/") ? p : workdir + "/" + p
-                }${cache.policy === "pull" ? ":ro" : ""}`
-            ),
-            // binding artifacts directories / files
-            ...artifactsFiles.map(
-              (p) =>
-                `${LOCAL_CI_DIR}/${p}:${
-                  p.startsWith("/") ? p : workdir + "/" + p
-                }${job.artifacts?.paths?.includes(p) ? "" : ":ro"}`
-            ),
+            // TODO: "Snapshot" and restore the _cache dir if policy === pull
+            ...cache.paths
+              .filter((p) => fs.existsSync(path.join(LOCAL_CI_CACHE_DIR, p)))
+              .map(
+                (p) =>
+                  `${path.join(LOCAL_CI_CACHE_DIR, p)}:${path.join(workdir, p)}`
+              ),
+            // // binding artifacts directories / files
+            // ...artifactsFiles.map(
+            //   (p) =>
+            //     `${LOCAL_CI_DIR}/${p}:${
+            //       p.startsWith("/") ? p : workdir + "/" + p
+            //     }${job.artifacts?.paths?.includes(p) ? "" : ":ro"}`
+            // ),
           ],
         },
       };
+
+      console.log(config);
 
       let container = null;
 
@@ -393,8 +407,23 @@ async function main() {
           await execCommands(workdir, container, commands, onerror);
         }
 
+        // updating cache (if policy asks) after job ended
+        if (cache.policy !== "pull" && cache.paths.length > 0) {
+          for (const file of cache.paths) {
+            const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
+            const targetAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+
+            if (fs.existsSync(fileAbs)) {
+              mkdirpRecSync(path.dirname(targetAbs));
+              fs.copySync(fileAbs, path.join(LOCAL_CI_CACHE_DIR, file), {
+                recursive: true,
+              });
+            }
+          }
+        }
+
         // removing project files copy dir
-        fs.removeSync(projectFilesTemp);
+        fs.removeSync(PROJECT_FILES_TEMP_DIR);
 
         // stopping container when finishing
         await container.stop();
