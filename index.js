@@ -154,7 +154,13 @@ async function main() {
   let projectFiles = [];
 
   // listing .git project files
-  walker.on("entry", (entry) => projectFiles.push(entry.path()));
+  walker.on("entry", (entry) => {
+    const path = entry.path();
+
+    if (fs.existsSync(path)) {
+      projectFiles.push(path);
+    }
+  });
   walker.start();
 
   // handling inclusion of other yaml files
