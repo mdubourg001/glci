@@ -9,6 +9,7 @@ const { hideBin } = require("yargs/helpers");
 const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs-extra");
+const slugify = require("slugify");
 const { performance } = require("perf_hooks");
 
 const define = require("./pre-defined");
@@ -19,7 +20,8 @@ const JOBS_NAMES = [];
 
 const DEFAULT = {};
 
-const ARTIFACTS = [];
+// ex: { 'test:e2e': { 'e2e/screenshots': '<LOCAL_CI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
+const ARTIFACTS = {};
 
 // ----- constants -----
 
@@ -39,6 +41,8 @@ const LOCAL_CI_DIR = ARGV.dir
   : path.resolve(process.cwd(), ".glci");
 
 const LOCAL_CI_CACHE_DIR = path.join(LOCAL_CI_DIR, ".glci_cache");
+
+const LOCAL_CI_ARTIFACTS_DIR = path.join(LOCAL_CI_DIR, ".glci_artifacts");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -219,15 +223,6 @@ async function main() {
       const now = performance.now();
       const job = ci[name];
 
-      // pushing artifacts paths in global artifacts
-      if ("artifacts" in job) {
-        for (const file of job.artifacts.paths ?? []) {
-          if (!ARTIFACTS.includes(file)) {
-            ARTIFACTS.push(file);
-          }
-        }
-      }
-
       const workdir = `/${sha}`;
       const image = job.image?.name
         ? job.image.name
@@ -250,21 +245,21 @@ async function main() {
         };
       }
 
-      let artifactsFiles = ARTIFACTS;
+      //let artifactsFiles = ARTIFACTS;
 
       // filtering to bind artifacts from specified jobs only
-      if (job.dependencies) {
-        artifactsFiles = ARTIFACTS.filter((file) =>
-          job.dependencies.some((jobName) =>
-            ci[jobName].artifacts?.paths?.includes(file)
-          )
-        );
-      }
+      // if (job.dependencies) {
+      //   artifactsFiles = ARTIFACTS.filter((file) =>
+      //     job.dependencies.some((jobName) =>
+      //       ci[jobName].artifacts?.paths?.includes(file)
+      //     )
+      //   );
+      // }
 
       // filtering artifacts files against cache files
-      artifactsFiles = artifactsFiles.filter(
-        (file) => !cache.paths?.includes(file)
-      );
+      // artifactsFiles = artifactsFiles.filter(
+      //   (file) => !cache.paths?.includes(file)
+      // );
 
       const preDefined = await define({
         ...job,
@@ -345,6 +340,22 @@ async function main() {
         );
       }
 
+      // take only dependencies artifacts if exists else every artifact generated before
+      let artifactsSources = job.dependencies ?? Object.keys(ARTIFACTS);
+
+      // copying artifacts inside temp project files directory
+      for (const jobName of artifactsSources) {
+        for (const file of Object.keys(ARTIFACTS[jobName] ?? {})) {
+          mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
+
+          fs.copySync(
+            `${ARTIFACTS[jobName][file]}`,
+            path.join(PROJECT_FILES_TEMP_DIR, file),
+            { recursive: true }
+          );
+        }
+      }
+
       const config = {
         Image: image,
         Tty: true,
@@ -352,7 +363,7 @@ async function main() {
         HostConfig: {
           AutoRemove: true,
           Binds: [
-            // binding the copy of project directory
+            // binding the copy of project directory + artifacts
             `${PROJECT_FILES_TEMP_DIR}:${workdir}`,
             // binding cache directories / files
             // TODO: "Snapshot" and restore the _cache dir if policy === pull
@@ -362,18 +373,9 @@ async function main() {
                 (p) =>
                   `${path.join(LOCAL_CI_CACHE_DIR, p)}:${path.join(workdir, p)}`
               ),
-            // // binding artifacts directories / files
-            // ...artifactsFiles.map(
-            //   (p) =>
-            //     `${LOCAL_CI_DIR}/${p}:${
-            //       p.startsWith("/") ? p : workdir + "/" + p
-            //     }${job.artifacts?.paths?.includes(p) ? "" : ":ro"}`
-            // ),
           ],
         },
       };
-
-      console.log(config);
 
       let container = null;
 
@@ -407,7 +409,7 @@ async function main() {
           await execCommands(workdir, container, commands, onerror);
         }
 
-        // updating cache (if policy asks) after job ended
+        // updating cache directory (if policy asks) after job ended
         if (cache.policy !== "pull" && cache.paths.length > 0) {
           for (const file of cache.paths) {
             const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
@@ -415,9 +417,29 @@ async function main() {
 
             if (fs.existsSync(fileAbs)) {
               mkdirpRecSync(path.dirname(targetAbs));
-              fs.copySync(fileAbs, path.join(LOCAL_CI_CACHE_DIR, file), {
-                recursive: true,
-              });
+              fs.copySync(fileAbs, targetAbs, { recursive: true });
+            }
+          }
+        }
+
+        // updating artifacts directory after job ended
+        if ("artifacts" in job) {
+          ARTIFACTS[name] = {};
+
+          if (job.artifacts.paths) {
+            for (const file of job.artifacts.paths) {
+              const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
+              const targetAbs = path.join(
+                LOCAL_CI_ARTIFACTS_DIR,
+                `${slugify(name)}_${file}`
+              );
+
+              if (fs.existsSync(fileAbs)) {
+                mkdirpRecSync(path.dirname(targetAbs));
+                fs.copySync(fileAbs, targetAbs, { recursive: true });
+              }
+
+              ARTIFACTS[name][file] = targetAbs;
             }
           }
         }

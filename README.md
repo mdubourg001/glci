@@ -59,9 +59,9 @@ It's pretty straightforward:
 
 ## Roadmap
 
-- Find a way to bind single files (not dirs) with volumes (need to figure out how)
 - Handle glob in `cache:paths` and `artifacts:paths` (need to figure out how)
 - Handle `artifacts:untracked` and `cache:untracked` (need to figure out how)
+- Add a `--clean` option to `rm -rf .glci` before execution
 - Add `--env` to allow defining / overriding env variables
 - Add `--in-vagrant` to run docker in Vagrant (not faster even on Mac for what I've tried)
 - Prevent sharing artifacts between same-stage jobs
