@@ -53,5 +53,5 @@ failingjob:
   script:
     - echo 1
     - echo 2
-    - node -e "exit(1);"
+    - node -e "process.exit(1);"
     - echo 3
