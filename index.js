@@ -210,7 +210,8 @@ async function main() {
       }
 
       const workdir = `/${sha}`;
-      const image = job.image ?? DEFAULT.image;
+      const image = job.image?.name ? job.image.name : job.image ?? DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image;
+      
       const cache = {
         policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
         paths:
