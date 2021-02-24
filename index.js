@@ -7,9 +7,8 @@ const chalk = require("chalk");
 const yargs = require("yargs/yargs");
 const { hideBin } = require("yargs/helpers");
 const dotenv = require("dotenv");
-
 const path = require("path");
-const fs = require("fs");
+const fs = require("fs-extra");
 const { performance } = require("perf_hooks");
 
 const define = require("./pre-defined");
@@ -163,13 +162,17 @@ async function main() {
   });
   walker.start();
 
+  // adding .git to project files
+  projectFiles.push(".git");
+
   // handling inclusion of other yaml files
   if ("include" in ci) {
     let included = "";
 
     for (const entry of ci.include) {
       if ("local" in entry) {
-        included += fs.readFileSync(path.join(process.cwd(), entry.local)) + "\n";
+        included +=
+          fs.readFileSync(path.join(process.cwd(), entry.local)) + "\n";
       } else {
         throw "Only 'local' includes are supported at the moment.";
       }
@@ -208,7 +211,7 @@ async function main() {
 
       // pushing artifacts paths in global artifacts
       if ("artifacts" in job) {
-        for (const file of job.artifacts.paths) {
+        for (const file of job.artifacts.paths ?? []) {
           if (!ARTIFACTS.includes(file)) {
             ARTIFACTS.push(file);
           }
@@ -216,8 +219,12 @@ async function main() {
       }
 
       const workdir = `/${sha}`;
-      const image = job.image?.name ? job.image.name : job.image ?? DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image;
-      
+      const image = job.image?.name
+        ? job.image.name
+        : job.image ?? DEFAULT.image?.name
+        ? DEFAULT.image.name
+        : DEFAULT.image;
+
       const cache = {
         policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
         paths:
@@ -311,6 +318,22 @@ async function main() {
         await onerror(err);
       }
 
+      // copying project files inside .glci to allow non-read-only bind
+      const projectFilesTemp = path.join(LOCAL_CI_DIR, sha);
+
+      for (const file of projectFiles) {
+        if (!fs.existsSync(path.join(projectFilesTemp, path.dirname(file)))) {
+          fs.mkdirSync(path.join(projectFilesTemp, path.dirname(file)), {
+            recursive: true,
+          });
+        }
+
+        fs.copySync(
+          `${path.resolve(process.cwd(), file)}`,
+          path.join(projectFilesTemp, file)
+        );
+      }
+
       const config = {
         Image: image,
         Tty: true,
@@ -318,10 +341,8 @@ async function main() {
         HostConfig: {
           AutoRemove: true,
           Binds: [
-            // binding project directory files as read-only
-            ...projectFiles.map(
-              (p) => `${path.resolve(process.cwd(), p)}:${workdir}/${p}:ro`
-            ),
+            // binding the copy of project directory files
+            `${projectFilesTemp}:${workdir}`,
             // binding cache directories / files
             ...cache.paths.map(
               (p) =>
@@ -371,6 +392,9 @@ async function main() {
 
           await execCommands(workdir, container, commands, onerror);
         }
+
+        // removing project files copy dir
+        fs.removeSync(projectFilesTemp);
 
         // stopping container when finishing
         await container.stop();

@@ -30,9 +30,12 @@ include:
 
 pre:
   stage: pre-prepare
+  before_script:
+    - apk add --no-cache git
   script:
     - mkdir -p test1
     - touch test1/test.txt
+    - git status
   artifacts:
     paths:
       - test1
