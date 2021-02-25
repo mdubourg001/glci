@@ -204,7 +204,7 @@ async function main() {
 
   // figuring out default values
   for (const key of GLOBAL_DEFAULT_KEY) {
-    DEFAULT[key] = ci.default ? ci.default[key] : ci[key];
+    DEFAULT[key] = (ci.default && ci.default[key]) ? ci.default[key] : ci[key];
   }
 
   // diff. actual jobs from reserved "config" keys
