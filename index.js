@@ -113,7 +113,7 @@ async function main() {
 
   // checking mandatory keys
   if (!("stages" in ci)) {
-    throw "No 'stages' keyword found in your .gitlab-ci.yml.";
+    ci.stages = ["build", "test", "deploy"]
   }
 
   //const docker = new Docker();
