@@ -9,6 +9,7 @@ const { hideBin } = require("yargs/helpers");
 const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs-extra");
+const slugify = require("slugify");
 const { performance } = require("perf_hooks");
 
 const define = require("./pre-defined");
@@ -19,7 +20,8 @@ const JOBS_NAMES = [];
 
 const DEFAULT = {};
 
-const ARTIFACTS = [];
+// ex: { 'test:e2e': { 'e2e/screenshots': '<LOCAL_CI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
+const ARTIFACTS = {};
 
 // ----- constants -----
 
@@ -34,9 +36,11 @@ const ENV = fs.existsSync(DOTENV_PATH)
   ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
   : {};
 
-const LOCAL_CI_DIR = ARGV.dir
-  ? path.resolve(process.cwd(), ARGV.dir)
-  : path.resolve(process.cwd(), ".glci");
+const LOCAL_CI_BASE = ARGV.dir ?? ".glci";
+
+const LOCAL_CI_DIR = path.resolve(process.cwd(), LOCAL_CI_BASE);
+const LOCAL_CI_CACHE_DIR = path.join(LOCAL_CI_DIR, ".glci_cache");
+const LOCAL_CI_ARTIFACTS_DIR = path.join(LOCAL_CI_DIR, ".glci_artifacts");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -62,6 +66,12 @@ const GLOBAL_DEFAULT_KEY = [
 ];
 
 // ----- main -----
+
+function mkdirpRecSync(dir) {
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
 
 async function execCommands(workdir, container, commands, onerror) {
   for (const command of commands) {
@@ -144,9 +154,20 @@ async function main() {
     process.exit(1);
   }
 
+  // cleaning the .glci directory if asked
+  if (ARGV.clean) {
+    console.log(
+      chalk.bold(`${chalk.blue("ℹ")} - Removing "${LOCAL_CI_BASE}"...\n`)
+    );
+
+    fs.removeSync(LOCAL_CI_DIR);
+  }
+
   const repository = await git.Repository.open(".");
   const commit = await repository.getHeadCommit();
   const sha = commit.sha().slice(0, 7);
+
+  const PROJECT_FILES_TEMP_DIR = path.join(LOCAL_CI_DIR, sha);
 
   const tree = await commit.getTree();
   const walker = tree.walk();
@@ -209,15 +230,6 @@ async function main() {
       const now = performance.now();
       const job = ci[name];
 
-      // pushing artifacts paths in global artifacts
-      if ("artifacts" in job) {
-        for (const file of job.artifacts.paths ?? []) {
-          if (!ARTIFACTS.includes(file)) {
-            ARTIFACTS.push(file);
-          }
-        }
-      }
-
       const workdir = `/${sha}`;
       const image = job.image?.name
         ? job.image.name
@@ -225,31 +237,20 @@ async function main() {
         ? DEFAULT.image.name
         : DEFAULT.image;
 
-      const cache = {
-        policy: job.cache?.policy ?? DEFAULT.cache?.policy ?? "pull-push",
-        paths:
-          job.cache?.paths ?? Array.isArray(job.cache)
-            ? job.cache
-            : Array.isArray(DEFAULT.cache)
-            ? DEFAULT.cache
-            : DEFAULT.cache?.paths ?? [],
-      };
-
-      let artifactsFiles = ARTIFACTS;
-
-      // filtering to bind artifacts from specified jobs only
-      if (job.dependencies) {
-        artifactsFiles = ARTIFACTS.filter((file) =>
-          job.dependencies.some((jobName) =>
-            ci[jobName].artifacts?.paths?.includes(file)
-          )
-        );
+      let cache = {};
+      if ("cache" in job) {
+        cache = {
+          policy: job.cache.policy ?? "pull-push",
+          paths: job.cache.paths ?? (Array.isArray(job.cache) ? job.cache : []),
+        };
+      } else {
+        cache = {
+          policy: DEFAULT.cache?.policy ?? "pull-push",
+          paths:
+            DEFAULT.cache?.paths ??
+            (Array.isArray(DEFAULT.cache) ? DEFAULT.cache : []),
+        };
       }
-
-      // filtering artifacts files against cache files
-      artifactsFiles = artifactsFiles.filter(
-        (file) => !cache.paths.includes(file)
-      );
 
       const preDefined = await define({
         ...job,
@@ -278,6 +279,7 @@ async function main() {
         console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
+        fs.removeSync(PROJECT_FILES_TEMP_DIR);
         process.exit(1);
       };
 
@@ -318,20 +320,48 @@ async function main() {
         await onerror(err);
       }
 
-      // copying project files inside .glci to allow non-read-only bind
-      const projectFilesTemp = path.join(LOCAL_CI_DIR, sha);
-
+      // copying project files inside .glci to allow non-read-only bind (git clone)
       for (const file of projectFiles) {
-        if (!fs.existsSync(path.join(projectFilesTemp, path.dirname(file)))) {
-          fs.mkdirSync(path.join(projectFilesTemp, path.dirname(file)), {
-            recursive: true,
-          });
-        }
+        mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
 
         fs.copySync(
           `${path.resolve(process.cwd(), file)}`,
-          path.join(projectFilesTemp, file)
+          path.join(PROJECT_FILES_TEMP_DIR, file),
+          { recursive: true }
         );
+      }
+
+      // copying needed cache files in temp project files directory (pull cache)
+      if (cache.policy !== "push") {
+        for (const file of cache.paths) {
+          const fileAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+
+          if (fs.existsSync(fileAbs)) {
+            mkdirpRecSync(
+              path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file))
+            );
+
+            fs.copySync(fileAbs, path.join(PROJECT_FILES_TEMP_DIR, file), {
+              recursive: true,
+            });
+          }
+        }
+      }
+
+      // take only dependencies artifacts if exists else every artifact generated before
+      let artifactsSources = job.dependencies ?? Object.keys(ARTIFACTS);
+
+      // copying artifacts inside temp project files directory (pull artifacts)
+      for (const jobName of artifactsSources) {
+        for (const file of Object.keys(ARTIFACTS[jobName] ?? {})) {
+          mkdirpRecSync(path.join(PROJECT_FILES_TEMP_DIR, path.dirname(file)));
+
+          fs.copySync(
+            `${ARTIFACTS[jobName][file]}`,
+            path.join(PROJECT_FILES_TEMP_DIR, file),
+            { recursive: true }
+          );
+        }
       }
 
       const config = {
@@ -340,24 +370,7 @@ async function main() {
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
-          Binds: [
-            // binding the copy of project directory files
-            `${projectFilesTemp}:${workdir}`,
-            // binding cache directories / files
-            ...cache.paths.map(
-              (p) =>
-                `${LOCAL_CI_DIR}/${p}:${
-                  p.startsWith("/") ? p : workdir + "/" + p
-                }${cache.policy === "pull" ? ":ro" : ""}`
-            ),
-            // binding artifacts directories / files
-            ...artifactsFiles.map(
-              (p) =>
-                `${LOCAL_CI_DIR}/${p}:${
-                  p.startsWith("/") ? p : workdir + "/" + p
-                }${job.artifacts?.paths?.includes(p) ? "" : ":ro"}`
-            ),
-          ],
+          Binds: [`${PROJECT_FILES_TEMP_DIR}:${workdir}`],
         },
       };
 
@@ -393,8 +406,43 @@ async function main() {
           await execCommands(workdir, container, commands, onerror);
         }
 
+        // updating cache directory (if policy asks) after job ended
+        if (cache.policy !== "pull" && cache.paths.length > 0) {
+          for (const file of cache.paths) {
+            const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
+            const targetAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+
+            if (fs.existsSync(fileAbs)) {
+              mkdirpRecSync(path.dirname(targetAbs));
+              fs.copySync(fileAbs, targetAbs, { recursive: true });
+            }
+          }
+        }
+
+        // updating artifacts directory after job ended
+        if ("artifacts" in job) {
+          ARTIFACTS[name] = {};
+
+          if (job.artifacts.paths) {
+            for (const file of job.artifacts.paths) {
+              const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
+              const targetAbs = path.join(
+                LOCAL_CI_ARTIFACTS_DIR,
+                `${slugify(name)}_${file}`
+              );
+
+              if (fs.existsSync(fileAbs)) {
+                mkdirpRecSync(path.dirname(targetAbs));
+                fs.copySync(fileAbs, targetAbs, { recursive: true });
+              }
+
+              ARTIFACTS[name][file] = targetAbs;
+            }
+          }
+        }
+
         // removing project files copy dir
-        fs.removeSync(projectFilesTemp);
+        fs.removeSync(PROJECT_FILES_TEMP_DIR);
 
         // stopping container when finishing
         await container.stop();

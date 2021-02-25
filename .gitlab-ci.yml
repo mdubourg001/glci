@@ -6,7 +6,7 @@ variables:
 
 image: node:lts-alpine3.12
 
-cache:
+cache: &global_cache
   key: ${CI_COMMIT_REF_SLUG}
   #untracked: true
   policy: pull
@@ -30,15 +30,44 @@ include:
 
 pre:
   stage: pre-prepare
+  cache:
+    <<: *global_cache
+    policy: pull-push
   before_script:
-    - apk add --no-cache git
+    - whoami
   script:
-    - mkdir -p test1
-    - touch test1/test.txt
-    - git status
+    - mkdir -p node_modules/lodash
+    - touch node_modules/lodash/index.js
+    - touch foo.txt
+    - mkdir bar && touch bar/bar.txt
   artifacts:
     paths:
-      - test1
+      - foo.txt
+      - bar
+
+pre-test:
+  stage: prepare
+  script:
+    - touch pretestfile.txt
+  artifacts:
+    paths:
+      - pretestfile.txt
+
+test:cacheworks:
+  stage: test
+  script:
+    - ls -lA node_modules/lodash/*
+    - test -f foo.txt && echo "foo.txt exists."
+    - test -f bar/bar.txt && echo "foo.txt exists."
+  dependencies:
+    - pre
+
+test:artifactswork:
+  stage: test
+  script:
+    - test -f foo.txt && echo "foo.txt exists."
+    - test -f bar/bar.txt && echo "foo.txt exists."
+    - test -f pretestfile.txt && echo "pretestfile.txt exists."
 
 test:unit:
   stage: test

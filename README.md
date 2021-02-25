@@ -20,6 +20,10 @@ At the root of your project (where your `.gitlab-ci.yml` is):
 glci
 ```
 
+⚠️ You might want to add `.glci` to your `.gitignore` file to prevent committing it.
+
+⚠️ If you are running glci on Linux, you might need to run it as root as volumes are automatically mounted as root.
+
 ## Options
 
 ### `--only-jobs [jobs]`
@@ -42,6 +46,14 @@ glci --only-jobs=install,test:e2e
 #                                ------------
 ```
 
+### `--dir <directory_name>`
+
+Changing the directory where glci keeps cache and artifacts between jobs. Defaults to `.glci`.
+
+### `--clean`
+
+Removing the directory given to `--dir` (default to `.glci`) before running glci.
+
 ## Cool stuff
 
 - If a `.env` file exists next to your `.gitlab-ci.yml`, variables inside it get automatically parsed and added to the containers
@@ -59,9 +71,9 @@ It's pretty straightforward:
 
 ## Roadmap
 
-- Find a way to bind single files (not dirs) with volumes (need to figure out how)
 - Handle glob in `cache:paths` and `artifacts:paths` (need to figure out how)
 - Handle `artifacts:untracked` and `cache:untracked` (need to figure out how)
+- Handle `artifacts:exclude` (supports globs too)
 - Add `--env` to allow defining / overriding env variables
 - Add `--in-vagrant` to run docker in Vagrant (not faster even on Mac for what I've tried)
 - Prevent sharing artifacts between same-stage jobs
