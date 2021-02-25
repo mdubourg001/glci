@@ -1,10 +1,13 @@
 {
   "name": "glci",
   "description": "Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.",
-  "main": "index.js",
+  "main": "./index.js",
   "bin": {
     "glci": "./dist/cli.min.js"
   },
+  "files": [
+    "./dist"
+  ],
   "keywords": [
     "gitlab",
     "ci",
