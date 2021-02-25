@@ -149,7 +149,7 @@ async function main() {
   try {
     await docker.version();
   } catch (err) {
-    console.error(chalk.red(err));
+    console.error(chalk.red(err.stack));
     console.error("Docker daemon does not seem to be running.");
     process.exit(1);
   }
@@ -275,7 +275,7 @@ async function main() {
       console.log(chalk.bold(delimiter + "\n"));
 
       const onerror = async (err, container) => {
-        if (err) console.error(chalk.red(err));
+        if (err) console.error(chalk.red(err.stack));
         console.error(chalk.red("✘"), ` - ${name}\n`);
 
         if (container) await container.stop();
