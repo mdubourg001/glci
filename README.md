@@ -2,7 +2,7 @@
 
 Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
 
-Why ? Because I did not wanted to commit, push, and wait for my jobs to run on the GitLab UI to figure I forgot to install `make` before running `make build`.
+Why ? Because I did not want to commit, push, and wait for my jobs to run on the GitLab UI to figure I forgot to install `make` before running `make build`.
 
 📣 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 
