@@ -286,8 +286,11 @@ async function main() {
       try {
         // pulling the image to use
         await new Promise((resolve, reject) =>
-          docker.pull(image, {}, (err, stream) => {
-            if (err) reject(err);
+          docker.pull(image, (err, stream) => {
+            if (err) {
+                reject(err);
+                return;
+            }
 
             let downloading = false;
             docker.modem.followProgress(
