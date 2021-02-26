@@ -123,7 +123,7 @@ async function main() {
 
   // checking mandatory keys
   if (!("stages" in ci)) {
-    ci.stages = ["build", "test", "deploy"]
+    ci.stages = ["build", "test", "deploy"];
   }
 
   //const docker = new Docker();
@@ -204,7 +204,7 @@ async function main() {
 
   // figuring out default values
   for (const key of GLOBAL_DEFAULT_KEY) {
-    DEFAULT[key] = (ci.default && ci.default[key]) ? ci.default[key] : ci[key];
+    DEFAULT[key] = ci.default && ci.default[key] ? ci.default[key] : ci[key];
   }
 
   // diff. actual jobs from reserved "config" keys
@@ -231,11 +231,9 @@ async function main() {
       const job = ci[name];
 
       const workdir = `/${sha}`;
-      const image = job.image?.name
-        ? job.image.name
-        : job.image ?? DEFAULT.image?.name
-        ? DEFAULT.image.name
-        : DEFAULT.image;
+      const image =
+        (job.image?.name ? job.image.name : job.image) ??
+        (DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image);
 
       let cache = {};
       if ("cache" in job) {
