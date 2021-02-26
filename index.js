@@ -288,8 +288,7 @@ async function main() {
         await new Promise((resolve, reject) =>
           docker.pull(image, (err, stream) => {
             if (err) {
-                reject(err);
-                return;
+                return reject(err);
             }
 
             let downloading = false;
