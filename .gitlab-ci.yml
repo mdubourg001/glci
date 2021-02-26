@@ -47,7 +47,7 @@ pre:
     - mkdir -p node_modules/lodash
     - touch node_modules/lodash/index.js
     - touch foo.txt
-    - mkdir bar && touch bar/bar.txt
+    - mkdir -p bar && touch bar/bar.txt
   artifacts:
     paths:
       - foo.txt
