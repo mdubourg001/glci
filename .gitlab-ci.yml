@@ -28,20 +28,13 @@ include:
   # - local: '/ci/build.yml'
   # - local: '/ci/deploy.yml'
 
-build:
+fakejob:
   stage: test
-  image: gcr.io/kaniko-project/executor:debug
-  before_script:
-    - whoami
-    - ls /root
-    - mkdir -p /root/.docker
-    - echo $DOCKER_AUTH_CONFIG > /root/.docker/config.json
-  script:
-    - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile --destination $RUN_TAG --destination $BRANCH_TAG --destination $COMMIT_TAG
-  tags:
-    - kubernetes
-  variables:
-    GIT_SUBMODULE_STRATEGY: normal
+  script: |
+    hello() {             
+      date;
+    }
+    hello
 
 pre:
   stage: pre-prepare

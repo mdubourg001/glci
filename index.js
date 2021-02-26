@@ -74,7 +74,9 @@ function mkdirpRecSync(dir) {
 }
 
 async function execCommands(workdir, container, commands, onerror) {
-  for (const command of commands) {
+  const preparedCommands = typeof commands === "string" ? [commands] : commands;
+
+  for (const command of preparedCommands) {
     console.log(chalk.bold(chalk.green(command)));
     let exec = null;
     let stream = null;
@@ -286,7 +288,7 @@ async function main() {
         await new Promise((resolve, reject) =>
           docker.pull(image, (err, stream) => {
             if (err) {
-                return reject(err);
+              return reject(err);
             }
 
             let downloading = false;
