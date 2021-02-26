@@ -28,13 +28,18 @@ include:
   # - local: '/ci/build.yml'
   # - local: '/ci/deploy.yml'
 
-fakejob:
-  stage: test
-  script: |
-    hello() {             
-      date;
-    }
-    hello
+.example-template:
+  image:
+    name: alpine
+  before_script:
+    - "echo 'Template before...'"
+
+job-extends:
+  extends:
+    - .example-template
+  before_script:
+    - "echo 'Job before...'"
+  script: echo "Hello World"
 
 pre:
   stage: pre-prepare

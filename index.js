@@ -13,6 +13,7 @@ const slugify = require("slugify");
 const { performance } = require("perf_hooks");
 const { promisify } = require("util");
 const osExec = promisify(require("child_process").exec);
+const merge = require("lodash.merge");
 
 const define = require("./pre-defined");
 
@@ -225,14 +226,32 @@ async function main() {
   for (const key of Object.keys(ci)) {
     if (!RESERVED_JOB_NAMES.includes(key)) {
       JOBS_NAMES.push(key);
+
+      const job = ci[key];
+
+      // handling extending hidden jobs
+      if ("extends" in job) {
+        const hiddenJob = ci[job.extends];
+
+        if (hiddenJob) {
+          // merging and updating ci object
+          ci[key] = merge(hiddenJob, job);
+          delete ci[key].extends;
+        } else {
+          await console.error(
+            chalk.red(`Can't extend job '${job.extends}': job doesn't exist.`)
+          );
+          process.exit(1);
+        }
+      }
     }
   }
 
   // running stages by order of definition in the "stages" key
   for (const stage of ci.stages) {
-    const jobs = JOBS_NAMES.filter(
-      (job) => (ci[job].stage ?? "test") === stage
-    ).filter((job) => (ONLY_JOBS ? ONLY_JOBS.includes(job) : true));
+    const jobs = JOBS_NAMES.filter((job) => (ci[job].stage ?? "test") === stage)
+      .filter((job) => (ONLY_JOBS ? ONLY_JOBS.includes(job) : true))
+      .filter((n) => !n.startsWith("."));
 
     let index = 0;
 
@@ -242,7 +261,24 @@ async function main() {
       index++;
 
       const now = performance.now();
-      const job = ci[name];
+      let job = ci[name];
+
+      const headline = `Running job "${chalk.yellow(name)}" for stage "${
+        job.stage ?? "test"
+      }"`;
+      const delimiter = new Array(headline.length).fill("-").join("");
+      console.log(chalk.bold(delimiter));
+      console.log(chalk.bold(headline));
+      console.log(chalk.bold(delimiter + "\n"));
+
+      const onerror = async (err, container) => {
+        if (err) console.error(chalk.red(err.stack));
+        console.error(chalk.red("✘"), ` - ${name}\n`);
+
+        if (container) await container.stop();
+        fs.removeSync(PROJECT_FILES_TEMP_DIR);
+        process.exit(1);
+      };
 
       const workdir = `/${sha}`;
       const image =
@@ -276,23 +312,6 @@ async function main() {
         ...ENV,
         ...DEFAULT.variables,
         ...job.variables,
-      };
-
-      const headline = `Running job "${chalk.yellow(name)}" for stage "${
-        job.stage ?? "test"
-      }"`;
-      const delimiter = new Array(headline.length).fill("-").join("");
-      console.log(chalk.bold(delimiter));
-      console.log(chalk.bold(headline));
-      console.log(chalk.bold(delimiter + "\n"));
-
-      const onerror = async (err, container) => {
-        if (err) console.error(chalk.red(err.stack));
-        console.error(chalk.red("✘"), ` - ${name}\n`);
-
-        if (container) await container.stop();
-        fs.removeSync(PROJECT_FILES_TEMP_DIR);
-        process.exit(1);
       };
 
       try {
