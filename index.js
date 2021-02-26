@@ -514,11 +514,15 @@ async function main() {
 }
 
 if (ARGV.help || ARGV.h) {
-  console.log(`glci: Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
+  const version = require("./package.json").version;
+
+  console.log(`glci (v${version}): Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
 
 glci options:
-    --only-jobs [jobs]: limiting the jobs to run to the comma-separated list of jobs name given
-    -h:                 display this help message
+    --only-jobs=[jobs]  limit the jobs to run to the comma-separated list of jobs name given
+    --dir=<dir>         change the directory where glci keeps cache and artifacts between jobs (default is ".glci")
+    --clean             remove glci cache directory (see --dir) before running glci
+    -h                  display this help message
 
 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 `);
