@@ -4,9 +4,6 @@ const yaml = require("js-yaml");
 const Docker = require("dockerode");
 const git = require("nodegit");
 const chalk = require("chalk");
-const yargs = require("yargs/yargs");
-const { hideBin } = require("yargs/helpers");
-const dotenv = require("dotenv");
 const path = require("path");
 const fs = require("fs-extra");
 const slugify = require("slugify");
@@ -15,7 +12,20 @@ const { promisify } = require("util");
 const osExec = promisify(require("child_process").exec);
 const merge = require("lodash.merge");
 
-const define = require("./pre-defined");
+const define = require("./src/pre-defined");
+const { getValidUrl, mkdirpRecSync, drawPipeline } = require("./src/utils");
+const {
+  ARGV,
+  ONLY_JOBS,
+  ENV,
+  GLCI_BASE,
+  GLCI_DIR,
+  GLCI_CACHE_DIR,
+  GLCI_ARTIFACTS_DIR,
+  RESERVED_JOB_NAMES,
+  GLOBAL_DEFAULT_KEY,
+  DEFAULT_STAGES,
+} = require("./src/constants");
 
 // ----- globals -----
 
@@ -26,69 +36,7 @@ const DEFAULT = {};
 // ex: { 'test:e2e': { 'e2e/screenshots': '<GLCI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
 const ARTIFACTS = {};
 
-// ----- constants -----
-
-const ARGV = yargs(hideBin(process.argv)).argv;
-
-const ONLY_JOBS = ARGV["only-jobs"]?.split
-  ? ARGV["only-jobs"].split(",")
-  : undefined;
-
-const DOTENV_PATH = path.resolve(process.cwd(), ".env");
-const ENV = fs.existsSync(DOTENV_PATH)
-  ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
-  : {};
-
-const GLCI_BASE = ARGV.dir ?? ".glci";
-
-const GLCI_DIR = path.resolve(process.cwd(), GLCI_BASE);
-const GLCI_CACHE_DIR = path.join(GLCI_DIR, ".glci_cache");
-const GLCI_ARTIFACTS_DIR = path.join(GLCI_DIR, ".glci_artifacts");
-
-// keys unusable as job name because reserved
-const RESERVED_JOB_NAMES = [
-  "image",
-  "services",
-  "stages",
-  "types",
-  "before_script",
-  "after_script",
-  "variables",
-  "cache",
-  "include",
-];
-
-// keys that can appear in "default" key
-// https://docs.gitlab.com/ee/ci/yaml/README.html#global-defaults
-const GLOBAL_DEFAULT_KEY = [
-  "image",
-  "before_script",
-  "after_script",
-  "cache",
-  "variables",
-];
-
 // ----- main -----
-
-function getValidUrl(url) {
-  const newUrl = decodeURIComponent(url).trim().replace(/\s/g, "");
-
-  if (/^(:\/\/)/.test(newUrl)) {
-    return `http${newUrl}`;
-  }
-
-  if (!/^(f|ht)tps?:\/\//i.test(newUrl)) {
-    return `http://${newUrl}`;
-  }
-
-  return newUrl;
-}
-
-function mkdirpRecSync(dir) {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
 
 async function execCommands({
   workdir,
@@ -152,7 +100,7 @@ async function main() {
 
   // checking mandatory keys
   if (!("stages" in ci)) {
-    ci.stages = ["build", "test", "deploy"];
+    ci.stages = DEFAULT_STAGES;
   }
 
   //const docker = new Docker();
@@ -266,6 +214,11 @@ async function main() {
     }
   }
 
+  // draw the representation of the pipeline
+  if (ARGV.draw !== false) {
+    drawPipeline(ci, ONLY_JOBS);
+  }
+
   // running stages by order of definition in the "stages" key
   for (const stage of ci.stages) {
     const jobs = JOBS_NAMES.filter((job) => (ci[job].stage ?? "test") === stage)
@@ -285,7 +238,7 @@ async function main() {
       const headline = `Running job "${chalk.yellow(name)}" for stage "${
         job.stage ?? "test"
       }"`;
-      const delimiter = new Array(headline.length).fill("-").join("");
+      const delimiter = "-".repeat(headline.length);
       console.log(chalk.bold(delimiter));
       console.log(chalk.bold(headline));
       console.log(chalk.bold(delimiter + "\n"));

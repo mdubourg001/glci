@@ -52,6 +52,10 @@ Changing the directory where glci keeps cache and artifacts between jobs. Defaul
 
 Removing the directory given to `--dir` (default to `.glci`) before running glci.
 
+### `--no-draw`
+
+Do not draw the representation of the pipeline before running jobs.
+
 ## Cool stuff
 
 - If a `.env` file exists next to your `.gitlab-ci.yml`, variables inside it get automatically parsed and added to the containers
