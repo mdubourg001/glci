@@ -56,6 +56,11 @@ job-extends:
     BAR: "overriden bar"
     BAZ: "baz"
 
+private-image-job:
+  image: maximedubourg/glci-private-repo:latest
+  script:
+    - date
+
 pre:
   stage: pre-prepare
   cache:

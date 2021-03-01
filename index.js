@@ -23,7 +23,7 @@ const JOBS_NAMES = [];
 
 const DEFAULT = {};
 
-// ex: { 'test:e2e': { 'e2e/screenshots': '<LOCAL_CI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
+// ex: { 'test:e2e': { 'e2e/screenshots': '<GLCI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
 const ARTIFACTS = {};
 
 // ----- constants -----
@@ -39,11 +39,11 @@ const ENV = fs.existsSync(DOTENV_PATH)
   ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
   : {};
 
-const LOCAL_CI_BASE = ARGV.dir ?? ".glci";
+const GLCI_BASE = ARGV.dir ?? ".glci";
 
-const LOCAL_CI_DIR = path.resolve(process.cwd(), LOCAL_CI_BASE);
-const LOCAL_CI_CACHE_DIR = path.join(LOCAL_CI_DIR, ".glci_cache");
-const LOCAL_CI_ARTIFACTS_DIR = path.join(LOCAL_CI_DIR, ".glci_artifacts");
+const GLCI_DIR = path.resolve(process.cwd(), GLCI_BASE);
+const GLCI_CACHE_DIR = path.join(GLCI_DIR, ".glci_cache");
+const GLCI_ARTIFACTS_DIR = path.join(GLCI_DIR, ".glci_artifacts");
 
 // keys unusable as job name because reserved
 const RESERVED_JOB_NAMES = [
@@ -69,6 +69,20 @@ const GLOBAL_DEFAULT_KEY = [
 ];
 
 // ----- main -----
+
+function getValidUrl(url) {
+  const newUrl = decodeURIComponent(url).trim().replace(/\s/g, "");
+
+  if (/^(:\/\/)/.test(newUrl)) {
+    return `http${newUrl}`;
+  }
+
+  if (!/^(f|ht)tps?:\/\//i.test(newUrl)) {
+    return `http://${newUrl}`;
+  }
+
+  return newUrl;
+}
 
 function mkdirpRecSync(dir) {
   if (!fs.existsSync(dir)) {
@@ -172,17 +186,17 @@ async function main() {
   // cleaning the .glci directory if asked
   if (ARGV.clean) {
     console.log(
-      chalk.bold(`${chalk.blue("ℹ")} - Removing "${LOCAL_CI_BASE}"...\n`)
+      chalk.bold(`${chalk.blue("ℹ")} - Removing "${GLCI_BASE}"...\n`)
     );
 
-    fs.removeSync(LOCAL_CI_DIR);
+    fs.removeSync(GLCI_DIR);
   }
 
   const repository = await git.Repository.open(".");
   const commit = await repository.getHeadCommit();
   const sha = commit.sha().slice(0, 7);
 
-  const PROJECT_FILES_TEMP_DIR = path.join(LOCAL_CI_DIR, sha);
+  const PROJECT_FILES_TEMP_DIR = path.join(GLCI_DIR, sha);
 
   const tree = await commit.getTree();
   const walker = tree.walk();
@@ -320,9 +334,39 @@ async function main() {
       };
 
       try {
+        // using credentials if needed
+        let credentials = undefined;
+        if (ENV.DOCKER_AUTH_CONFIG) {
+          const dockerAuthConfig = JSON.parse(ENV.DOCKER_AUTH_CONFIG);
+
+          const credentialsKey = Object.keys(dockerAuthConfig.auths ?? {}).find(
+            (registry) => {
+              const registryHost = new URL(getValidUrl(registry));
+              const imageHost = new URL(getValidUrl(image));
+
+              return registryHost.host === imageHost.host;
+            }
+          );
+
+          if (credentialsKey) {
+            const base64Creds = dockerAuthConfig.auths[credentialsKey].auth;
+            const clearCreds = Buffer.from(base64Creds, "base64")
+              .toString("utf-8")
+              .split(":");
+
+            credentials = {
+              authconfig: {
+                username: clearCreds[0],
+                password: clearCreds.slice(1).join(":"),
+                serveraddress: credentialsKey,
+              },
+            };
+          }
+        }
+
         // pulling the image to use
         await new Promise((resolve, reject) =>
-          docker.pull(image, (err, stream) => {
+          docker.pull(image, credentials, (err, stream) => {
             if (err) {
               return reject(err);
             }
@@ -372,7 +416,7 @@ async function main() {
       // copying needed cache files in temp project files directory (pull cache)
       if (cache.policy !== "push") {
         for (const file of cache.paths) {
-          const fileAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+          const fileAbs = path.join(GLCI_CACHE_DIR, file);
 
           if (fs.existsSync(fileAbs)) {
             mkdirpRecSync(
@@ -472,7 +516,7 @@ async function main() {
         if (cache.policy !== "pull" && cache.paths.length > 0) {
           for (const file of cache.paths) {
             const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
-            const targetAbs = path.join(LOCAL_CI_CACHE_DIR, file);
+            const targetAbs = path.join(GLCI_CACHE_DIR, file);
 
             if (fs.existsSync(fileAbs)) {
               mkdirpRecSync(path.dirname(targetAbs));
@@ -489,7 +533,7 @@ async function main() {
             for (const file of job.artifacts.paths) {
               const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
               const targetAbs = path.join(
-                LOCAL_CI_ARTIFACTS_DIR,
+                GLCI_ARTIFACTS_DIR,
                 `${slugify(name)}_${file}`
               );
 

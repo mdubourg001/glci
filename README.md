@@ -57,6 +57,14 @@ Removing the directory given to `--dir` (default to `.glci`) before running glci
 - If a `.env` file exists next to your `.gitlab-ci.yml`, variables inside it get automatically parsed and added to the containers
 - Most of the pre-defined environment variables normally set by GitLab CI are also set here: see [pre-defined.js](/pre-defined.js)
 
+## Pulling images from private registries / repositories
+
+To be able to pull images from private registries / repositories, glci copies a GitLab CI mecanism: the `DOCKER_AUTH_CONFIG` env variable (see https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#configuring-a-job).
+
+As glci automatically reads the `.env` file at the root of your project, you can set a `DOCKER_AUTH_CONFIG` inside it as you would do it in GitLab CI/CD variables configurations and you should be able to pull images from your private registries.
+
+Don't forget to add this `.env` file to your `.gitignore`.
+
 ## How does it work ?
 
 It's pretty straightforward:
