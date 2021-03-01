@@ -1,6 +1,7 @@
 import { babel } from "@rollup/plugin-babel";
 import commonjs from "@rollup/plugin-commonjs";
 import shebang from "rollup-plugin-preserve-shebang";
+import json from "@rollup/plugin-json";
 
 const config = {
   input: "index.js",
@@ -11,6 +12,7 @@ const config = {
   plugins: [
     shebang(),
     commonjs(),
+    json(),
     babel({
       babelHelpers: "bundled",
       plugins: [
