@@ -231,18 +231,23 @@ async function main() {
 
       // handling extending hidden jobs
       if ("extends" in job) {
-        const hiddenJob = ci[job.extends];
+        const extend =
+          typeof job.extends === "string" ? [job.extends] : job.extends;
 
-        if (hiddenJob) {
-          // merging and updating ci object
-          ci[key] = merge(hiddenJob, job);
-          delete ci[key].extends;
-        } else {
-          await console.error(
-            chalk.red(`Can't extend job '${job.extends}': job doesn't exist.`)
-          );
-          process.exit(1);
+        // checking that jobs to extend exist
+        for (const hiddenJobName of extend) {
+          if (!ci[hiddenJobName]) {
+            await console.error(
+              chalk.red(
+                `Can't extend job '${hiddenJobName}': job doesn't exist.`
+              )
+            );
+            process.exit(1);
+          }
         }
+
+        ci[key] = merge(...extend.map((name) => ci[name]), job);
+        delete ci[key].extends;
       }
     }
   }

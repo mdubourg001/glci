@@ -32,14 +32,29 @@ include:
   image:
     name: alpine
   before_script:
-    - "echo 'Template before...'"
+    - "echo 'Example template before...'"
+  variables:
+    FOO: "foo"
+    BAR: "bar"
+
+.other-template:
+  before_script:
+    - "echo 'Other template before...'"
+  after_script:
+    - "echo 'Other template after...'"
+  variables:
+    FOO: "overriden foo"
 
 job-extends:
   extends:
     - .example-template
+    - .other-template
   before_script:
     - "echo 'Job before...'"
   script: echo "Hello World"
+  variables:
+    BAR: "overriden bar"
+    BAZ: "baz"
 
 pre:
   stage: pre-prepare
