@@ -44,6 +44,10 @@ glci --only-jobs=install,test:e2e
 #                                ------------
 ```
 
+### `--yml <yml_file_path>`
+
+Setting the file to use in place of `.gitlab-ci.yml` (default to `.gitlab-ci.yml`). Useful when testing parent-child pipelines.
+
 ### `--dir <directory_name>`
 
 Changing the directory where glci keeps cache and artifacts between jobs. Defaults to `.glci`.
@@ -54,7 +58,7 @@ Removing the directory given to `--dir` (default to `.glci`) before running glci
 
 ### `--no-draw`
 
-Do not draw the representation of the pipeline before running jobs.
+Not drawing the representation of the pipeline before running jobs.
 
 ## Cool stuff
 

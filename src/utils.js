@@ -57,7 +57,7 @@ function drawPipeline(ci, onlyJobs) {
     stage + 1 < rows.length && titles.push(" ".repeat(5));
   }
 
-  console.log(chalk.grey("\n" + titles.join("")));
+  console.log(chalk.grey(titles.join("")));
   console.log(chalk.grey("-".repeat(titles.join("").length)));
 
   for (

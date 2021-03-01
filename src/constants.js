@@ -15,6 +15,8 @@ const ENV = fs.existsSync(DOTENV_PATH)
   ? dotenv.parse(fs.readFileSync(DOTENV_PATH))
   : {};
 
+const GITLAB_CI_YML = path.resolve(process.cwd(), ARGV.yml ?? ".gitlab-ci.yml");
+
 const GLCI_BASE = ARGV.dir ?? ".glci";
 
 const GLCI_DIR = path.resolve(process.cwd(), GLCI_BASE);
@@ -51,6 +53,7 @@ module.exports = {
   ONLY_JOBS,
   DOTENV_PATH,
   ENV,
+  GITLAB_CI_YML,
   GLCI_BASE,
   GLCI_DIR,
   GLCI_CACHE_DIR,

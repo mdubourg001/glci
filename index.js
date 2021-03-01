@@ -18,6 +18,7 @@ const {
   ARGV,
   ONLY_JOBS,
   ENV,
+  GITLAB_CI_YML,
   GLCI_BASE,
   GLCI_DIR,
   GLCI_CACHE_DIR,
@@ -84,18 +85,21 @@ async function execCommands({
 }
 
 async function main() {
-  if (!fs.existsSync(path.resolve(process.cwd(), ".gitlab-ci.yml"))) {
-    throw "No .gitlab-ci.yml file found in current working directory.";
+  if (!fs.existsSync(GITLAB_CI_YML)) {
+    console.error(
+      chalk.red(`Error while trying to read ${GITLAB_CI_YML}: file not found.`)
+    );
+    process.exit(1);
   }
 
-  const gitlabci = fs.readFileSync(
-    path.resolve(process.cwd(), ".gitlab-ci.yml"),
-    "utf8"
-  );
+  const gitlabci = fs.readFileSync(GITLAB_CI_YML, "utf8");
   let ci = yaml.load(gitlabci);
 
   if (typeof ci !== "object") {
-    throw "Your .gitlab-ci.yml file is invalid.";
+    console.error(
+      chalk.red(`Error while parsing ${GITLAB_CI_YML}: file is invalid.`)
+    );
+    process.exit(1);
   }
 
   // checking mandatory keys
@@ -515,19 +519,22 @@ async function main() {
   }
 }
 
-if (ARGV.help || ARGV.h) {
-  const version = require("./package.json").version;
+const version = require("./package.json").version;
 
+if (ARGV.help || ARGV.h) {
   console.log(`glci (v${version}): Ease GitLab CI Pipelines set-up by running your jobs locally in Docker containers.
 
 glci options:
     --only-jobs=[jobs]  limit the jobs to run to the comma-separated list of jobs name given
+    --yml=<yml>         set the YAML file to use in place of .gitlab-ci.yml
     --dir=<dir>         change the directory where glci keeps cache and artifacts between jobs (default is ".glci")
     --clean             remove glci cache directory (see --dir) before running glci
+    --no-draw           do not draw representation of the pipeline before running jobs
     -h                  display this help message
 
 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 `);
 } else {
+  console.log(chalk.yellow(`glci (v${version})\n`));
   main();
 }
