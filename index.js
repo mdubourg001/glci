@@ -271,6 +271,7 @@ async function main() {
         cache = {
           policy: job.cache.policy ?? "pull-push",
           paths: job.cache.paths ?? (Array.isArray(job.cache) ? job.cache : []),
+          untracked: job.cache.untracked,
         };
       } else {
         cache = {
@@ -278,6 +279,7 @@ async function main() {
           paths:
             DEFAULT.cache?.paths ??
             (Array.isArray(DEFAULT.cache) ? DEFAULT.cache : []),
+          untracked: DEFAULT.cache?.untracked,
         };
       }
 
@@ -488,7 +490,7 @@ async function main() {
             }
           };
 
-          if (job.cache.untracked === true) {
+          if (cache.untracked === true) {
             const untracked = readdirRecSync(
               PROJECT_FILES_TEMP_DIR,
               [],
