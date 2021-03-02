@@ -54,5 +54,5 @@
     "build": "rollup -c",
     "prepublish": "yarn build"
   },
-  "version": "0.3.0"
+  "version": "0.4.0"
 }
