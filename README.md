@@ -85,8 +85,7 @@ It's pretty straightforward:
 
 ## Roadmap
 
-- Handle glob in `cache:paths` and `artifacts:paths` (need to figure out how)
-- Handle `artifacts:untracked` and `cache:untracked` (need to figure out how)
+- Handle glob in `cache:paths` and `artifacts:paths`
 - Handle `artifacts:exclude` (supports globs too)
 - Add `--env` to allow defining / overriding env variables
 - Add `--in-vagrant` to run docker in Vagrant (not faster even on Mac for what I've tried)

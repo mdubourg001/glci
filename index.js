@@ -475,16 +475,31 @@ async function main() {
         }
 
         // updating cache directory (if policy asks) after job ended
-        if (cache.policy !== "pull" && cache.paths.length > 0) {
-          for (const file of cache.paths) {
-            const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
-            const targetAbs = path.join(GLCI_CACHE_DIR, file);
+        if (cache.policy !== "pull") {
+          const copyFiles = (files) => {
+            for (const file of files) {
+              const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
+              const targetAbs = path.join(GLCI_CACHE_DIR, file);
 
-            if (fs.existsSync(fileAbs)) {
-              mkdirpRecSync(path.dirname(targetAbs));
-              fs.copySync(fileAbs, targetAbs, { recursive: true });
+              if (fs.existsSync(fileAbs)) {
+                mkdirpRecSync(path.dirname(targetAbs));
+                fs.copySync(fileAbs, targetAbs, { recursive: true });
+              }
             }
+          };
+
+          if (job.cache.untracked === true) {
+            const untracked = readdirRecSync(
+              PROJECT_FILES_TEMP_DIR,
+              [],
+              "",
+              projectFiles
+            ).filter((file) => !projectFiles.includes(file));
+
+            copyFiles(untracked);
           }
+
+          copyFiles(cache.paths);
         }
 
         // updating artifacts directory after job ended

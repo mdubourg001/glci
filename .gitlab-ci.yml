@@ -64,8 +64,9 @@ private-image-job:
 pre:
   stage: pre-prepare
   cache:
-    <<: *global_cache
+    #<<: *global_cache
     policy: pull-push
+    untracked: true
   before_script:
     - whoami
   script:
