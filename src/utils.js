@@ -1,8 +1,12 @@
 const fs = require("fs-extra");
+const path = require("path");
 const chalk = require("chalk");
 
-const { RESERVED_JOB_NAMES } = require("./constants");
+const { RESERVED_JOB_NAMES, DEFAULT_STAGES } = require("./constants");
 
+/**
+ * given an url, returns the cleaned url with protocol
+ */
 function getValidUrl(url) {
   const newUrl = decodeURIComponent(url).trim().replace(/\s/g, "");
 
@@ -17,12 +21,44 @@ function getValidUrl(url) {
   return newUrl;
 }
 
+/**
+ * recursive mkdir -p
+ */
 function mkdirpRecSync(dir) {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
 }
 
+/**
+ * recursively list a directory files
+ * if projectFiles is given, not going rec on a directory that isn't in it
+ */
+function readdirRecSync(dir, files, parent, projectFiles = []) {
+  const currentDirFiles = fs.readdirSync(dir, {
+    withFileTypes: true,
+  });
+
+  for (const file of currentDirFiles) {
+    const fileRel = path.join(parent, file.name);
+
+    if (
+      !file.isDirectory() ||
+      (!projectFiles.includes(fileRel) &&
+        !projectFiles.some((name) => path.dirname(name) === fileRel))
+    ) {
+      files.push(fileRel);
+    } else {
+      readdirRecSync(fileRel, files, fileRel, projectFiles);
+    }
+  }
+
+  return files;
+}
+
+/**
+ * logs a representation of a pipeline jobs
+ */
 function drawPipeline(ci, onlyJobs) {
   // [[ "test", [ "test:unit", "test:e2e" ] ], [ "build", "build:staging" ]]
   const rows = [];
@@ -112,5 +148,6 @@ function drawPipeline(ci, onlyJobs) {
 module.exports = {
   getValidUrl,
   mkdirpRecSync,
+  readdirRecSync,
   drawPipeline,
 };

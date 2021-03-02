@@ -74,9 +74,9 @@ pre:
     - touch foo.txt
     - mkdir -p bar && touch bar/bar.txt
   artifacts:
+    untracked: true
     paths:
-      - foo.txt
-      - bar
+     - package.json
 
 pre-test:
   stage: prepare

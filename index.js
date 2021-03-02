@@ -13,7 +13,12 @@ const osExec = promisify(require("child_process").exec);
 const merge = require("lodash.merge");
 
 const define = require("./src/pre-defined");
-const { getValidUrl, mkdirpRecSync, drawPipeline } = require("./src/utils");
+const {
+  getValidUrl,
+  mkdirpRecSync,
+  readdirRecSync,
+  drawPipeline,
+} = require("./src/utils");
 const {
   ARGV,
   ONLY_JOBS,
@@ -486,8 +491,8 @@ async function main() {
         if ("artifacts" in job) {
           ARTIFACTS[name] = {};
 
-          if (job.artifacts.paths) {
-            for (const file of job.artifacts.paths) {
+          const copyFiles = (files) => {
+            for (const file of files) {
               const fileAbs = path.join(PROJECT_FILES_TEMP_DIR, file);
               const targetAbs = path.join(
                 GLCI_ARTIFACTS_DIR,
@@ -501,6 +506,21 @@ async function main() {
 
               ARTIFACTS[name][file] = targetAbs;
             }
+          };
+
+          if (job.artifacts.untracked === true) {
+            const untracked = readdirRecSync(
+              PROJECT_FILES_TEMP_DIR,
+              [],
+              "",
+              projectFiles
+            ).filter((file) => !projectFiles.includes(file));
+
+            copyFiles(untracked);
+          }
+
+          if (job.artifacts.paths) {
+            copyFiles(job.artifacts.paths);
           }
         }
 
