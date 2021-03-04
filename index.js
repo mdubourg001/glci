@@ -99,9 +99,12 @@ async function main() {
   }
 
   const gitlabci = fs.readFileSync(GITLAB_CI_YML, "utf8");
-  let ci = yaml.load(gitlabci);
+  let ci = null;
 
-  if (typeof ci !== "object") {
+  try {
+    ci = yaml.load(gitlabci);
+    if (typeof ci !== "object") throw "";
+  } catch {
     console.error(
       chalk.red(`Error while parsing ${GITLAB_CI_YML}: file is invalid.`)
     );
@@ -598,7 +601,11 @@ glci options:
 
 Disclaimer: this is a helper tool aiming to facilite the process of setting up GitLab CI Pipelines. glci **does NOT** aim to replace any other tool.
 `);
-} else {
+} else if (process.env.NODE_ENV !== "test") {
   console.log(chalk.yellow(`glci (v${version})\n`));
   main();
 }
+
+module.exports = {
+  glci: main,
+};
