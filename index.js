@@ -47,7 +47,7 @@ const ARTIFACTS = {};
 async function execCommands({
   workdir,
   container,
-  commands,
+  commands = [],
   onerror,
   verbose = true,
 }) {
