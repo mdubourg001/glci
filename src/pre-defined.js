@@ -39,6 +39,7 @@ module.exports = async (job) => {
     // TODO: figure it out
     CI_DEFAULT_BRANCH: "master",
     CI_JOB_ID: "42",
+    // image could contain environment variables names at this point
     CI_JOB_IMAGE: job.image,
     CI_JOB_MANUAL: false,
     CI_JOB_NAME: job.name,

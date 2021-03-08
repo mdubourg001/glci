@@ -56,6 +56,22 @@ function readdirRecSync(dir, files, parent, projectFiles = []) {
   return files;
 }
 
+function replaceEnvironmentVariables(string, env) {
+  const regexp = new RegExp("(\\$[A-Z]+_?[A-Z]+)", "gm");
+  const matches = string.match(regexp);
+
+  let replaced = string;
+  for (const match of matches) {
+    if (!(match.slice(1) in env)) {
+      throw `'${match}' is not in environment variables.`;
+    }
+
+    replaced = replaced.replace(match, env[match.slice(1)]);
+  }
+
+  return replaced;
+}
+
 /**
  * logs a representation of a pipeline jobs
  */
@@ -149,5 +165,6 @@ module.exports = {
   getValidUrl,
   mkdirpRecSync,
   readdirRecSync,
+  replaceEnvironmentVariables,
   drawPipeline,
 };

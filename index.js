@@ -17,6 +17,7 @@ const {
   getValidUrl,
   mkdirpRecSync,
   readdirRecSync,
+  replaceEnvironmentVariables,
   drawPipeline,
 } = require("./src/utils");
 const {
@@ -290,13 +291,14 @@ async function main() {
         image,
         workdir,
       });
-      const variables = {
+      let variables = {
         ...preDefined,
         ...ENV,
         ...DEFAULT.variables,
         ...job.variables,
       };
 
+      let preparedImageName = image;
       try {
         // using credentials if needed
         let credentials = undefined;
@@ -328,9 +330,30 @@ async function main() {
           }
         }
 
+        // replacing environment variables in image name
+        try {
+          preparedImageName = replaceEnvironmentVariables(image, variables);
+        } catch (e) {
+          console.error(
+            chalk.red(
+              `When trying to replace environment variables in '${image}': ${e}`
+            )
+          );
+          process.exit(1);
+        }
+
+        // updating the CI_JOB_IMAGE variable
+        variables = {
+          ...preDefined,
+          CI_JOB_IMAGE: preparedImageName,
+          ...ENV,
+          ...DEFAULT.variables,
+          ...job.variables,
+        };
+
         // pulling the image to use
         await new Promise((resolve, reject) =>
-          docker.pull(image, credentials, (err, stream) => {
+          docker.pull(preparedImageName, credentials, (err, stream) => {
             if (err) {
               return reject(err);
             }
@@ -342,7 +365,9 @@ async function main() {
                 if (!downloading) {
                   console.log(
                     chalk.bold(
-                      `${chalk.blue("ℹ")} - Using existing image "${image}"`
+                      `${chalk.blue(
+                        "ℹ"
+                      )} - Using existing image "${preparedImageName}"`
                     )
                   );
                 }
@@ -354,7 +379,9 @@ async function main() {
                   downloading = true;
                   console.log(
                     chalk.bold(
-                      `${chalk.blue("ℹ")} - Pulling image "${image}"...`
+                      `${chalk.blue(
+                        "ℹ"
+                      )} - Pulling image "${preparedImageName}"...`
                     )
                   );
                 }
@@ -411,7 +438,7 @@ async function main() {
       }
 
       const config = {
-        Image: image,
+        Image: preparedImageName,
         Tty: true,
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
