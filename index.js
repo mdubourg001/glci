@@ -268,7 +268,8 @@ async function main() {
       const workdir = `/${sha}`;
       const image =
         (job.image?.name ? job.image.name : job.image) ??
-        (DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image);
+        (DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image) ??
+        "ruby:2.5";
 
       let cache = {};
       if ("cache" in job) {
