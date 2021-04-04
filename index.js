@@ -10,7 +10,7 @@ const slugify = require("slugify");
 const { performance } = require("perf_hooks");
 const { promisify } = require("util");
 const osExec = promisify(require("child_process").exec);
-const merge = require("lodash.merge");
+const merge = require("deepmerge");
 
 const define = require("./src/pre-defined");
 const {
@@ -198,7 +198,7 @@ async function main() {
   }
 
   // diff. actual jobs from reserved "config" keys
-  for (const key of Object.keys(ci)) {
+  for (const key of Object.keys(ci).sort()) {
     if (!RESERVED_JOB_NAMES.includes(key)) {
       JOBS_NAMES.push(key);
 
@@ -221,7 +221,9 @@ async function main() {
           }
         }
 
-        ci[key] = merge(...extend.map((name) => ci[name]), job);
+        ci[key] = merge.all([...extend.map((name) => ci[name]), job], {
+          arrayMerge: (_, other) => other,
+        });
         delete ci[key].extends;
       }
     }

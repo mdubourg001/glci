@@ -46,6 +46,7 @@ include:
     FOO: "overriden foo"
 
 job-extends:
+  stage: pre-prepare
   extends:
     - .example-template
     - .other-template
