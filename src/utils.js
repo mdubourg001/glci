@@ -57,7 +57,7 @@ function readdirRecSync(dir, files, parent, projectFiles = []) {
 }
 
 function replaceEnvironmentVariables(string, env) {
-  const regexp = new RegExp("(\\$[A-Z]+_?[A-Z]+)", "gm");
+  const regexp = new RegExp("(\\$[A-Za-z0-9_]+)", "gm");
   const matches = string.match(regexp) ?? [];
 
   let replaced = string;
