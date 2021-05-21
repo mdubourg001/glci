@@ -498,7 +498,7 @@ async function main() {
           if (stderr) {
             await onerror(stderr, container);
           } else if (stdout.trim()) {
-            const commands = [`chown -R ${stdout.trim()}: ${workdir}`];
+            const commands = [`chown -R ${stdout.trim()} ${workdir}`];
             await execCommands({
               workdir,
               container,
