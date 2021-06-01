@@ -33,6 +33,9 @@ const {
   GLOBAL_DEFAULT_KEY,
   DEFAULT_STAGES,
 } = require("./src/constants");
+const {
+  getShellCommandLine,
+} = require("./src/shell");
 
 // ----- globals -----
 
@@ -64,7 +67,7 @@ async function execCommands({
 
     try {
       exec = await container.exec({
-        Cmd: ["sh", "-c", command],
+        Cmd: getShellCommandLine(command),
         AttachStdout: true,
         AttachStderr: true,
         WorkingDir: workdir,
@@ -450,6 +453,7 @@ async function main() {
         Image: preparedImageName,
         Entrypoint: entrypoint,
         Tty: true,
+        Cmd: getShellCommandLine(),
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
