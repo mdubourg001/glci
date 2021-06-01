@@ -272,6 +272,9 @@ async function main() {
         (job.image?.name ? job.image.name : job.image) ??
         (DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image) ??
         "ruby:2.5";
+      const entrypoint =
+        (job.image?.entrypoint ? job.image.entrypoint : undefined) ??
+        (DEFAULT.image?.entrypoint ? DEFAULT.image.entrypoint : undefined);
 
       let cache = {};
       if ("cache" in job) {
@@ -445,6 +448,7 @@ async function main() {
 
       const config = {
         Image: preparedImageName,
+        Entrypoint: entrypoint,
         Tty: true,
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
