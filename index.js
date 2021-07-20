@@ -33,6 +33,9 @@ const {
   GLOBAL_DEFAULT_KEY,
   DEFAULT_STAGES,
 } = require("./src/constants");
+const {
+  DOCKER_CONFIG_ENVS,
+} = require("./src/docker-config");
 
 // ----- globals -----
 
@@ -350,6 +353,7 @@ async function main() {
 
         // updating the CI_JOB_IMAGE variable
         variables = {
+          ...DOCKER_CONFIG_ENVS,
           ...preDefined,
           CI_JOB_IMAGE: preparedImageName,
           ...ENV,
