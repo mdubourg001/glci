@@ -34,9 +34,8 @@ const {
   GLOBAL_DEFAULT_KEY,
   DEFAULT_STAGES,
 } = require("./src/constants");
-const {
-  getShellCommandLine,
-} = require("./src/shell");
+const { getShellCommandLine } = require("./src/shell");
+const { DOCKER_CONFIG_ENVS } = require("./src/docker-config");
 
 // ----- globals -----
 
@@ -165,24 +164,26 @@ async function main() {
 
   const PROJECT_FILES_TEMP_DIR = path.join(GLCI_DIR, sha);
 
-  const projectFiles = await commit.getTree()
-    .then((tree) => new Promise((resolve, reject) => {
-      const walker = tree.walk();
-      const list = [];
+  const projectFiles = await commit.getTree().then(
+    (tree) =>
+      new Promise((resolve, reject) => {
+        const walker = tree.walk();
+        const list = [];
 
-      // listing .git project files
-      walker
-        .on("entry", (entry) => {
-          const path = entry.path();
+        // listing .git project files
+        walker
+          .on("entry", (entry) => {
+            const path = entry.path();
 
-          if (fs.existsSync(path)) {
-            list.push(path);
-          }
-        })
-        .on("end", () => resolve(list))
-        .on("error", (err) => reject(err));
-      walker.start();
-    }));
+            if (fs.existsSync(path)) {
+              list.push(path);
+            }
+          })
+          .on("end", () => resolve(list))
+          .on("error", (err) => reject(err));
+        walker.start();
+      })
+  );
 
   // adding .git to project files
   projectFiles.push(".git");
@@ -364,12 +365,13 @@ async function main() {
 
         // updating the CI_JOB_IMAGE variable
         variables = {
+          ...DOCKER_CONFIG_ENVS,
           ...preDefined,
           CI_JOB_IMAGE: preparedImageName,
           ...ENV,
           ...DEFAULT.variables,
           ...job.variables,
-          ...REPORTS_ENVS
+          ...REPORTS_ENVS,
         };
 
         // pulling the image to use
@@ -592,11 +594,15 @@ async function main() {
 
           if ("reports" in job.artifacts) {
             if (job.artifacts.reports.dotenv) {
-              const envFile = path.join(PROJECT_FILES_TEMP_DIR, job.artifacts.reports.dotenv);
+              const envFile = path.join(
+                PROJECT_FILES_TEMP_DIR,
+                job.artifacts.reports.dotenv
+              );
               if (fs.existsSync(envFile)) {
                 const config = dotenv.parse(fs.readFileSync(envFile));
-                Object.keys(config)
-                  .forEach((key) => REPORTS_ENVS[key] = config[key]);
+                Object.keys(config).forEach(
+                  (key) => (REPORTS_ENVS[key] = config[key])
+                );
               }
             }
           }
