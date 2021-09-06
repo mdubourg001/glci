@@ -11,6 +11,7 @@ const { performance } = require("perf_hooks");
 const { promisify } = require("util");
 const osExec = promisify(require("child_process").exec);
 const merge = require("deepmerge");
+const dotenv = require("dotenv");
 
 const define = require("./src/pre-defined");
 const {
@@ -42,6 +43,8 @@ const DEFAULT = {};
 
 // ex: { 'test:e2e': { 'e2e/screenshots': '<GLCI_ARTIFACTS_DIR>/_test-e2e_e2e/screenshots' }  }
 const ARTIFACTS = {};
+
+const REPORTS_ENVS = {};
 
 // ----- main -----
 
@@ -355,6 +358,7 @@ async function main() {
           ...ENV,
           ...DEFAULT.variables,
           ...job.variables,
+          ...REPORTS_ENVS
         };
 
         // pulling the image to use
@@ -571,6 +575,17 @@ async function main() {
 
           if (job.artifacts.paths) {
             copyFiles(job.artifacts.paths);
+          }
+
+          if ("reports" in job.artifacts) {
+            if (job.artifacts.reports.dotenv) {
+              const envFile = path.join(PROJECT_FILES_TEMP_DIR, job.artifacts.reports.dotenv);
+              if (fs.existsSync(envFile)) {
+                const config = dotenv.parse(fs.readFileSync(envFile));
+                Object.keys(config)
+                  .forEach((key) => REPORTS_ENVS[key] = config[key]);
+              }
+            }
           }
         }
 
