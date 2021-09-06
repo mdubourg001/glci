@@ -67,7 +67,7 @@ Not drawing the representation of the pipeline before running jobs.
 
 ## Pulling images from private registries / repositories
 
-To be able to pull images from private registries / repositories, glci copies a GitLab CI mecanism: the `DOCKER_AUTH_CONFIG` env variable (see https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#configuring-a-job).
+To be able to pull images from private registries / repositories, glci copies a GitLab CI mechanism: the `DOCKER_AUTH_CONFIG` env variable (see https://docs.gitlab.com/ee/ci/docker/using_docker_images.html#configuring-a-job).
 
 As glci automatically reads the `.env` file at the root of your project, you can set a `DOCKER_AUTH_CONFIG` inside it as you would do it in GitLab CI/CD variables configurations and you should be able to pull images from your private registries.
 
