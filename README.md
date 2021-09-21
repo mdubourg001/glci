@@ -8,6 +8,8 @@ Why ? Because I did not want to commit, push, and wait for my jobs to run on the
 
 ## Installation
 
+You need to have Docker installed and running to use glci.
+
 ```bash
 yarn global add glci
 ```
@@ -72,6 +74,16 @@ To be able to pull images from private registries / repositories, glci copies a 
 As glci automatically reads the `.env` file at the root of your project, you can set a `DOCKER_AUTH_CONFIG` inside it as you would do it in GitLab CI/CD variables configurations and you should be able to pull images from your private registries.
 
 Don't forget to add this `.env` file to your `.gitignore`.
+
+## Use glci itself inside a Docker container
+
+At the root of the project you want ro run glci for:
+
+```bash
+docker run -it -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock glci
+```
+
+This creates a container with the last version of glci running. The two volumes are needed to bind your project files inside the container, and to be able to use Docker from inside the container.
 
 ## How does it work ?
 
