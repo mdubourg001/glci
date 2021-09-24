@@ -33,6 +33,9 @@ const {
   GLOBAL_DEFAULT_KEY,
   DEFAULT_STAGES,
 } = require("./src/constants");
+const {
+  getShellCommandLine,
+} = require("./src/shell");
 
 // ----- globals -----
 
@@ -64,7 +67,7 @@ async function execCommands({
 
     try {
       exec = await container.exec({
-        Cmd: ["sh", "-c", command],
+        Cmd: getShellCommandLine(command),
         AttachStdout: true,
         AttachStderr: true,
         WorkingDir: workdir,
@@ -272,6 +275,9 @@ async function main() {
         (job.image?.name ? job.image.name : job.image) ??
         (DEFAULT.image?.name ? DEFAULT.image.name : DEFAULT.image) ??
         "ruby:2.5";
+      const entrypoint =
+        (job.image?.entrypoint ? job.image.entrypoint : undefined) ??
+        (DEFAULT.image?.entrypoint ? DEFAULT.image.entrypoint : undefined);
 
       let cache = {};
       if ("cache" in job) {
@@ -445,7 +451,9 @@ async function main() {
 
       const config = {
         Image: preparedImageName,
+        Entrypoint: entrypoint,
         Tty: true,
+        Cmd: getShellCommandLine(),
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
