@@ -159,19 +159,24 @@ async function main() {
 
   const PROJECT_FILES_TEMP_DIR = path.join(GLCI_DIR, sha);
 
-  const tree = await commit.getTree();
-  const walker = tree.walk();
-  let projectFiles = [];
+  const projectFiles = await commit.getTree()
+    .then((tree) => new Promise((resolve, reject) => {
+      const walker = tree.walk();
+      const list = [];
 
-  // listing .git project files
-  walker.on("entry", (entry) => {
-    const path = entry.path();
+      // listing .git project files
+      walker
+        .on("entry", (entry) => {
+          const path = entry.path();
 
-    if (fs.existsSync(path)) {
-      projectFiles.push(path);
-    }
-  });
-  walker.start();
+          if (fs.existsSync(path)) {
+            list.push(path);
+          }
+        })
+        .on("end", () => resolve(list))
+        .on("error", (err) => reject(err));
+      walker.start();
+    }));
 
   // adding .git to project files
   projectFiles.push(".git");
