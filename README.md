@@ -8,6 +8,8 @@ Why ? Because I did not want to commit, push, and wait for my jobs to run on the
 
 ## Installation
 
+You need to have Docker installed and running to use glci.
+
 ```bash
 yarn global add glci
 ```

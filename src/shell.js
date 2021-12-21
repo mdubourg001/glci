@@ -4,12 +4,10 @@
 
 /**
  * get bash detect shell script
- *
- * @param isLoginShell {boolean} login shell
- * @return {string} generated code
  */
 function getBashDetectShellScript(isLoginShell) {
-  const bashDefaultArguments = isLoginShell ? '--login' : '';
+  const bashDefaultArguments = isLoginShell ? "--login" : "";
+
   return `if [ -x /usr/local/bin/bash ]; then
 	exec /usr/local/bin/bash ${bashDefaultArguments} "$@"
 elif [ -x /usr/bin/bash ]; then
@@ -31,19 +29,18 @@ fi
 `;
 }
 
-function getShellCommandLine(userCommand) {
-  const command = [
-    'sh', '-c', getBashDetectShellScript(true)
-  ];
+function getShellCommandLine(userCommand = undefined, isLoginShell = false) {
+  const command = ["sh", "-c", getBashDetectShellScript(isLoginShell)];
+
   if (userCommand) {
-    command.push('--');
-    command.push('-c');
+    command.push("--");
+    command.push("-c");
     command.push(userCommand);
   }
+
   return command;
 }
 
-
 module.exports = {
-  getShellCommandLine
+  getShellCommandLine,
 };

@@ -464,7 +464,7 @@ async function main() {
         Image: preparedImageName,
         Entrypoint: entrypoint,
         Tty: true,
-        Cmd: getShellCommandLine(),
+        Cmd: getShellCommandLine(undefined, true),
         Env: Object.keys(variables).map((key) => `${key}=${variables[key]}`),
         HostConfig: {
           AutoRemove: true,
