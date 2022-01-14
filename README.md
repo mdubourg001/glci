@@ -75,6 +75,16 @@ As glci automatically reads the `.env` file at the root of your project, you can
 
 Don't forget to add this `.env` file to your `.gitignore`.
 
+## Use glci itself inside a Docker container
+
+At the root of the project you want ro run glci for:
+
+```bash
+docker run -it -v $(pwd):/app -v /var/run/docker.sock:/var/run/docker.sock glci
+```
+
+This creates a container with the last version of glci running. The two volumes are needed to bind your project files inside the container, and to be able to use Docker from inside the container.
+
 ## How does it work ?
 
 It's pretty straightforward:
